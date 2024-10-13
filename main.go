@@ -1,0 +1,190 @@
+package main
+
+import (
+	"fmt"
+	consulServiceManager "github.com/ayushs-2k4/go-consul-service-manager"
+	"github.com/google/uuid"
+	"kontest-authentication/database"
+	"kontest-authentication/model"
+	"kontest-authentication/routes"
+	"log"
+	"net/http"
+	"os"
+	"strconv"
+	"time"
+)
+
+var (
+	applicationHost = "localhost"                      // Default value for local development
+	applicationPort = "5155"                           // Default value for local development
+	serviceName     = "KONTEST-AUTHENTICATION-SERVICE" // Service name for Service Registry
+	consulHost      = "localhost"                      // Default value for local development
+	consulPort      = 5150
+
+	// DB properties
+	dbHost           = "localhost"
+	dbPort           = "5432"
+	dbName           = "kontest"
+	dbUser           = "ayushsinghal"
+	dbPassword       = ""
+	isSSLModeEnabled = false
+)
+
+func initializeVariables() {
+	// Attempt to read the KONTEST_API_SERVER_HOST environment variable
+	if host := os.Getenv("KONTEST_AUTHENTICATION_SERVICE_HOST"); host != "" {
+		applicationHost = host // Override with the environment variable if set
+	}
+
+	// Attempt to read the KONTEST_API_SERVER_PORT environment variable
+	if port := os.Getenv("KONTEST_AUTHENTICATION_SERVICE_PORT"); port != "" {
+		applicationPort = port // Override with the environment variable if set
+	}
+
+	// Attempt to read the CONSUL_ADDRESS environment variable
+	if host := os.Getenv("CONSUL_HOST"); host != "" {
+		consulHost = host // Override with the environment variable if set
+	}
+
+	// Attempt to read the CONSUL_PORT environment variable
+	if port := os.Getenv("CONSUL_PORT"); port != "" {
+		if portInt, err := strconv.Atoi(port); err == nil {
+			consulPort = portInt // Override with the environment variable if set and valid
+		}
+	}
+
+	// Attempt to read the DB_HOST environment variable
+	if host := os.Getenv("DB_HOST"); host != "" {
+		dbHost = host // Override with the environment variable if set
+	}
+
+	// Attempt to read the DB_PORT environment variable
+	if port := os.Getenv("DB_PORT"); port != "" {
+		dbPort = port // Override with the environment variable if set
+	}
+
+	// Attempt to read the DB_NAME environment variable
+	if name := os.Getenv("DB_NAME"); name != "" {
+		dbName = name // Override with the environment variable if set
+	}
+
+	// Attempt to read the DB_USER environment variable
+	if user := os.Getenv("DB_USER"); user != "" {
+		dbUser = user // Override with the environment variable if set
+	}
+
+	// Attempt to read the DB_PASSWORD environment variable
+	if password := os.Getenv("DB_PASSWORD"); password != "" {
+		dbPassword = password // Override with the environment variable if set
+	}
+
+	// Attempt to read the DB_SSL_MODE environment variable
+	if sslMode := os.Getenv("DB_SSL_MODE"); sslMode != "" {
+		isSSLModeEnabled = sslMode == "enable"
+	}
+}
+
+func main() {
+	initializeVariables()
+
+	portInt, err := strconv.Atoi(applicationPort)
+	if err != nil {
+		log.Fatalf("Failed to convert applicationPort to integer: %v", err)
+	}
+
+	consulService := consulServiceManager.NewConsulService(consulHost, consulPort)
+	consulService.Start(applicationHost, portInt, serviceName)
+
+	// Initialize the database connection
+	database.InitializeDatabase(dbName, dbPort, dbHost, dbUser, dbPassword, map[bool]string{true: "enable", false: "disable"}[isSSLModeEnabled])
+	database.SetupDatabase()
+	defer database.CloseDB()
+	doDatabaseTest()
+
+	router := http.NewServeMux()
+
+	routes.RegisterRoutes(router)
+
+	server := http.Server{
+		Addr:    ":" + applicationPort, // Use the field name Addr for the address
+		Handler: router,                // Use the field name Handler for the router
+	}
+
+	fmt.Println("Server listening at applicationPort: " + applicationPort)
+
+	err = server.ListenAndServe()
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+}
+
+func doDatabaseTest() {
+	// Inserting sample users into the database
+	users := []model.User{
+		{ID: uuid.New(), Email: "email@s.com", Password: "hashed_password"},
+		{ID: uuid.New(), Email: "user2@example.com", Password: "hashed_password"},
+	}
+
+	// Use the db variable to create multiple users
+	for _, user := range users {
+		refreshToken := model.RefreshToken{
+			TokenID:      uuid.New(),
+			RefreshToken: "sample_refresh_token",         // generate or pass a token here
+			Expiry:       time.Now().Add(24 * time.Hour), // set your expiration time
+			UserID:       user.ID,
+		}
+
+		// Insert users
+		_, err := database.InsertUserIntoDB(user)
+		if err != nil {
+			log.Printf("Error adding user %s: %v\n", user.Email, err)
+			continue
+		}
+
+		// Insert refresh token
+		_, err = database.InsertRefreshTokenIntoDB(refreshToken)
+
+		// Add a device for the refresh token
+		device := model.Device{
+			RefreshTokenID: refreshToken.TokenID,
+		}
+
+		_, err = database.InsertDeviceIntoDB(device)
+	}
+
+	log.Println("Users added successfully")
+
+	// Inserting sample roles into the database
+	roles := []model.Role{
+		{ID: 1, Name: "user"},
+		{ID: 2, Name: "admin"},
+	}
+
+	// Use the db variable to create multiple roles
+	for _, role := range roles {
+		if _, err := database.InsertRoleIntoDB(role); err != nil {
+			log.Printf("Error adding role %s: %v\n", role.Name, err)
+		}
+	}
+
+	log.Println("Roles added successfully")
+
+	// Inserting role assignments (assign roles to users) into the user_roles table
+	userRoles := []struct {
+		UserID uuid.UUID `db:"user_id"`
+		RoleID int       `db:"role_id"`
+	}{
+		{UserID: users[0].ID, RoleID: 1}, // Assign "user" role to first user
+		{UserID: users[0].ID, RoleID: 2}, // Assign "admin" role to first user
+		{UserID: users[1].ID, RoleID: 1}, // Assign "user" role to second user
+	}
+
+	// Insert user roles
+	for _, userRole := range userRoles {
+		if _, err := database.AssignRoleToUser(userRole.UserID, userRole.RoleID); err != nil {
+			log.Printf("Error assigning role ID %d to user ID %s: %v\n", userRole.RoleID, userRole.UserID, err)
+		}
+	}
+	log.Println("User roles added successfully")
+}
