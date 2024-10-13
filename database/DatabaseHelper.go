@@ -1,9 +1,12 @@
 package database
 
 import (
+	"errors"
 	"fmt"
 	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq"
+	error2 "kontest-authentication/error"
+	"kontest-authentication/model"
 	"log"
 	"sync"
 )
@@ -59,6 +62,8 @@ func SetupDatabase() {
 	}
 
 	createTables()
+
+	insertRoles()
 }
 
 func createTables() {
@@ -126,4 +131,67 @@ func createTables() {
 	}
 
 	log.Println("All tables created successfully.")
+}
+
+func insertRoles() {
+	roles := []model.Role{
+		{
+			ID:   1,
+			Name: "USER",
+		},
+		{
+			ID:   2,
+			Name: "ADMIN",
+		},
+	}
+
+	db := GetDB()          // Get the database connection
+	tx, err := db.Beginx() // Begin a new transaction
+	if err != nil {
+		log.Fatalf("Failed to begin transaction: %v", err)
+	}
+
+	defer func() {
+		if err != nil {
+			err := tx.Rollback()
+			if err != nil {
+				log.Println("Cannot rollback transaction")
+				return
+			} // Rollback if there was an error
+		} else {
+			if commitErr := tx.Commit(); commitErr != nil {
+				log.Fatalf("Failed to commit transaction: %v", commitErr)
+			}
+		}
+	}()
+
+	for _, role := range roles {
+		if err := insertRoleIfNotExists(role, tx); err != nil {
+			log.Fatalf("Can not insert role %s in DB with error: %s", role.Name, err)
+		}
+	}
+
+	log.Println("Roles successfully added to DB")
+}
+
+func insertRoleIfNotExists(role model.Role, tx *sqlx.Tx) error {
+	// Check if role already exists
+	existingRole, err := FindRoleByName(role.Name)
+
+	if err != nil && !errors.Is(err, &error2.RoleNotFoundError{}) {
+		return fmt.Errorf("error checking if role exists: %v", err)
+	}
+
+	if existingRole != nil {
+		log.Printf("Role %s already exists in DB", role.Name)
+		return nil // Role already exists, do nothing
+	}
+
+	// Insert the role if it does not exist
+	_, err = InsertRoleIntoDB(role, tx)
+	if err != nil {
+		return fmt.Errorf("failed to insert role %s: %w", role.Name, err)
+	}
+
+	return nil
 }

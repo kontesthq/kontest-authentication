@@ -99,7 +99,7 @@ func main() {
 	database.InitializeDatabase(dbName, dbPort, dbHost, dbUser, dbPassword, map[bool]string{true: "enable", false: "disable"}[isSSLModeEnabled])
 	database.SetupDatabase()
 	defer database.CloseDB()
-	doDatabaseTest()
+	//doDatabaseTest()
 
 	router := http.NewServeMux()
 
@@ -120,6 +120,26 @@ func main() {
 }
 
 func doDatabaseTest() {
+	tx, err := database.GetDB().Beginx()
+
+	if err != nil {
+		log.Fatalf("Failed to begin transaction: %v", err)
+	}
+
+	defer func() {
+		if err != nil {
+			err := tx.Rollback()
+			if err != nil {
+				log.Println("Cannot rollback transaction")
+				return
+			} // Rollback if there was an error
+		} else {
+			if commitErr := tx.Commit(); commitErr != nil {
+				log.Fatalf("Failed to commit transaction: %v", commitErr)
+			}
+		}
+	}()
+
 	// Inserting sample users into the database
 	users := []model.User{
 		{ID: uuid.New(), Email: "email@s.com", Password: "hashed_password"},
@@ -136,21 +156,21 @@ func doDatabaseTest() {
 		}
 
 		// Insert users
-		_, err := database.InsertUserIntoDB(user)
+		_, err := database.InsertUserIntoDB(user, tx)
 		if err != nil {
 			log.Printf("Error adding user %s: %v\n", user.Email, err)
 			continue
 		}
 
 		// Insert refresh token
-		_, err = database.InsertRefreshTokenIntoDB(refreshToken)
+		_, err = database.InsertRefreshTokenIntoDB(refreshToken, tx)
 
 		// Add a device for the refresh token
 		device := model.Device{
 			RefreshTokenID: refreshToken.TokenID,
 		}
 
-		_, err = database.InsertDeviceIntoDB(device)
+		_, err = database.InsertDeviceIntoDB(device, tx)
 	}
 
 	log.Println("Users added successfully")
@@ -163,7 +183,7 @@ func doDatabaseTest() {
 
 	// Use the db variable to create multiple roles
 	for _, role := range roles {
-		if _, err := database.InsertRoleIntoDB(role); err != nil {
+		if _, err := database.InsertRoleIntoDB(role, tx); err != nil {
 			log.Printf("Error adding role %s: %v\n", role.Name, err)
 		}
 	}
@@ -182,7 +202,7 @@ func doDatabaseTest() {
 
 	// Insert user roles
 	for _, userRole := range userRoles {
-		if _, err := database.AssignRoleToUser(userRole.UserID, userRole.RoleID); err != nil {
+		if _, err := database.AssignRoleToUser(userRole.UserID, userRole.RoleID, tx); err != nil {
 			log.Printf("Error assigning role ID %d to user ID %s: %v\n", userRole.RoleID, userRole.UserID, err)
 		}
 	}
