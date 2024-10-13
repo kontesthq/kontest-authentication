@@ -8,13 +8,23 @@ import (
 	error2 "kontest-authentication/error"
 	"kontest-authentication/model"
 	"log"
+	"sync"
+)
+
+var (
+	instance *UserService
+	once     sync.Once
 )
 
 type UserService struct {
 }
 
 func NewUserService() *UserService {
-	return &UserService{}
+	once.Do(func() {
+		instance = &UserService{}
+	})
+
+	return instance
 }
 
 func (us *UserService) Register(user model.User) (uuid.UUID, error) {
@@ -69,6 +79,11 @@ func (us *UserService) Register(user model.User) (uuid.UUID, error) {
 	_, err = database.AssignRoleToUser(user.ID, 1, tx)
 	if err != nil {
 		return uuid.Nil, errors.New("can not assign role to user")
+	}
+
+	// Publish the registration message to kafka_utils
+	if err := PublishRegistrationMessage(user.Email); err != nil {
+		log.Printf("Failed to publish registration message: %v", err)
 	}
 
 	return uid, nil

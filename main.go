@@ -7,6 +7,8 @@ import (
 	"kontest-authentication/database"
 	"kontest-authentication/model"
 	"kontest-authentication/routes"
+	"kontest-authentication/service"
+	"kontest-authentication/utils/kafka_utils"
 	"log"
 	"net/http"
 	"os"
@@ -86,6 +88,11 @@ func initializeVariables() {
 
 func main() {
 	initializeVariables()
+
+	kafkaConfig := kafka_utils.GetKafkaConfig()
+
+	kafkaBroker := kafkaConfig.KafkaHost + ":" + kafkaConfig.KafkaPort
+	service.InitKafka(kafkaBroker)
 
 	portInt, err := strconv.Atoi(applicationPort)
 	if err != nil {
