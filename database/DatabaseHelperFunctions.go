@@ -92,7 +92,7 @@ func FindByEmail(email string) (*model.User, error) {
 	var user model.User
 
 	query := `
-	SELECT id, email FROM users WHERE email = :email`
+	SELECT id, email, password FROM users WHERE email = :email`
 
 	rows, err := GetDB().NamedQuery(query,
 		map[string]interface{}{
@@ -113,4 +113,17 @@ func FindByEmail(email string) (*model.User, error) {
 
 	// If no rows were returned, the user was not found
 	return nil, &error2.UserNotFoundError{}
+}
+
+func UpdateUser(user model.User, tx *sqlx.Tx) error {
+	_, err := tx.NamedExec(`
+		UPDATE users
+		SET password = :password
+		WHERE id = :id`, &user)
+
+	if err != nil {
+		return fmt.Errorf("error updating details for user %s: %v", user.Email, err)
+	}
+
+	return nil
 }
