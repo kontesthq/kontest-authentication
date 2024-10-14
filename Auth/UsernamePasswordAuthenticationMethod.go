@@ -1,9 +1,10 @@
-package service
+package Auth
 
 import (
 	"errors"
 	"fmt"
 	"github.com/ayushs-2k4/go-security/Auth/FromJava/PasswordEncoder"
+	"kontest-authentication/model"
 	"log"
 	"net/http"
 )
@@ -12,11 +13,11 @@ type UsernamePasswordAuthenticationMethod struct {
 	Username                  string
 	Password                  string
 	DelegatingPasswordEncoder *PasswordEncoder.DelegatingPasswordEncoder
-	GetUserDetails            func(username string) (*UserDetails, error)
+	GetUserDetails            func(username string) (*model.UserDetails, error)
 	ChangePasswordFunc        func(username, newPassword string) error
 }
 
-func NewUsernamePasswordAuthenticationMethod(username, password string, delegatingPasswordEncoder *PasswordEncoder.DelegatingPasswordEncoder, getUserDetailsFunc func(username string) (*UserDetails, error), changePasswordFunc func(username, newPassword string) error) *UsernamePasswordAuthenticationMethod {
+func NewUsernamePasswordAuthenticationMethod(username, password string, delegatingPasswordEncoder *PasswordEncoder.DelegatingPasswordEncoder, getUserDetailsFunc func(username string) (*model.UserDetails, error), changePasswordFunc func(username, newPassword string) error) *UsernamePasswordAuthenticationMethod {
 
 	if delegatingPasswordEncoder == nil {
 		idForEncode := "scrypt"

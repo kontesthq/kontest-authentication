@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/ayushs-2k4/go-security/Auth/FromJava/PasswordEncoder"
 	"github.com/google/uuid"
+	"kontest-authentication/Auth"
 	"kontest-authentication/config"
 	"kontest-authentication/database"
 	error2 "kontest-authentication/error"
@@ -33,17 +34,17 @@ func NewUserService() *UserService {
 	return instance
 }
 
-func getUserDetails(email string) (*UserDetails, error) {
-	user, err := database.FindByEmail(email)
+func getUserDetails(email string) (*model.UserDetails, error) {
+	user, err := database.FindUserByEmail(email)
 	if err != nil {
 		return nil, err
 	}
 
-	return NewMyUserDetailsImpl(user.ID, user.Email, user.Password), nil
+	return model.NewMyUserDetailsImpl(user.ID, user.Email, user.Password), nil
 }
 
 func changePassword(email, newPassword string) error {
-	user, err := database.FindByEmail(email)
+	user, err := database.FindUserByEmail(email)
 	if err != nil {
 		return err
 	}
@@ -96,7 +97,7 @@ func (us *UserService) Register(user model.User) (uuid.UUID, error) {
 		}
 	}()
 
-	dbUser, err := database.FindByEmail(user.Email)
+	dbUser, err := database.FindUserByEmail(user.Email)
 
 	if (err != nil && !errors.Is(err, &error2.UserNotFoundError{})) {
 		return uuid.Nil, fmt.Errorf("error checking if user exists: %v", err)
@@ -145,7 +146,7 @@ func (us *UserService) Register(user model.User) (uuid.UUID, error) {
 }
 
 func (us *UserService) DoAuthenticate(email, password string) (uuid.UUID, error) {
-	usernamePasswordAuthenticationMethod := NewUsernamePasswordAuthenticationMethod(email, password, config.GetDelegatePasswordEncoder(), getUserDetails, changePassword)
+	usernamePasswordAuthenticationMethod := Auth.NewUsernamePasswordAuthenticationMethod(email, password, config.GetDelegatePasswordEncoder(), getUserDetails, changePassword)
 
 	authenticated, err := usernamePasswordAuthenticationMethod.Authenticate(nil, nil)
 	if err != nil || !authenticated {

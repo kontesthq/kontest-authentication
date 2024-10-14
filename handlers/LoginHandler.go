@@ -3,9 +3,11 @@ package handlers
 import (
 	"encoding/json"
 	"fmt"
+	"kontest-authentication/Auth"
 	"kontest-authentication/model"
 	"kontest-authentication/service"
 	"net/http"
+	"time"
 )
 
 func LoginHandler(w http.ResponseWriter, r *http.Request) {
@@ -38,10 +40,24 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 
 	fmt.Println(uid)
 
+	jwtToken, err := Auth.GenerateJWTOnly(uid.String(), []byte("JWT Secret"), 5*time.Minute)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("error: %v", err), http.StatusInternalServerError)
+	}
+
+	refreshTokenService := service.NewRefreshTokenService()
+
+	refreshToken, err := refreshTokenService.CreateRefreshToken(uid, jwtRequest.DeviceID)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("error: %v", err), http.StatusInternalServerError)
+		return
+	}
+
 	// Successful authentication response
 	response := map[string]interface{}{
-		"message": "Login successful",
-		"user_id": uid,
+		"jwt_token":     jwtToken,
+		"refresh_token": refreshToken.RefreshToken,
+		"username":      jwtRequest.Email,
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)

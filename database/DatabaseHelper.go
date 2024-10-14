@@ -104,30 +104,30 @@ func createTables() {
 		log.Fatalf("Failed to create user_roles table: %v", err)
 	}
 
+	// Create Devices table
+	devicesTable := `
+	CREATE TABLE IF NOT EXISTS devices (
+		id TEXT PRIMARY KEY
+	);`
+
+	if _, err := db.Exec(devicesTable); err != nil {
+		log.Fatalf("Failed to create devices table: %v", err)
+	}
+
 	// Create RefreshTokens table
 	refreshTokensTable := `
 	CREATE TABLE IF NOT EXISTS refresh_tokens (
 		token_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
 		refresh_token TEXT NOT NULL,
-		expiry TIMESTAMP NOT NULL,
+		expiry TIMESTAMPTZ NOT NULL,  -- Use TIMESTAMPTZ to include timezone info
 		user_id UUID NOT NULL,
+		associated_device_id TEXT NOT NULL,
+		FOREIGN KEY (associated_device_id) REFERENCES devices(id) ON DELETE CASCADE,
 		FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 	);`
 
 	if _, err := db.Exec(refreshTokensTable); err != nil {
 		log.Fatalf("Failed to create refresh_tokens table: %v", err)
-	}
-
-	// Create Devices table
-	devicesTable := `
-	CREATE TABLE IF NOT EXISTS devices (
-		id SERIAL PRIMARY KEY,
-		refresh_token_id UUID NOT NULL,
-		FOREIGN KEY (refresh_token_id) REFERENCES refresh_tokens(token_id) ON DELETE CASCADE
-	);`
-
-	if _, err := db.Exec(devicesTable); err != nil {
-		log.Fatalf("Failed to create devices table: %v", err)
 	}
 
 	log.Println("All tables created successfully.")
