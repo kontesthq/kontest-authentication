@@ -54,10 +54,10 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Successful authentication response
-	response := map[string]interface{}{
-		"jwt_token":     jwtToken,
-		"refresh_token": refreshToken.RefreshToken,
-		"username":      jwtRequest.Email,
+	response := model.JWTResponse{
+		JWTToken:     jwtToken,
+		RefreshToken: refreshToken.RefreshToken,
+		Username:     jwtRequest.Email,
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)

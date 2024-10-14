@@ -25,9 +25,19 @@ func InsertUserIntoDB(user model.User, tx *sqlx.Tx) (sql.Result, error) {
 
 // InsertRefreshTokenIntoDB Function to insert a refresh token into the database
 func InsertRefreshTokenIntoDB(refreshToken model.RefreshToken, tx *sqlx.Tx) (sql.Result, error) {
-	result, err := tx.NamedExec(`
+	var result sql.Result
+	var err error
+
+	if tx != nil {
+		result, err = tx.NamedExec(`
 		INSERT INTO refresh_tokens (token_id, refresh_token, expiry, user_id, associated_device_id)
 		VALUES (:token_id, :refresh_token, :expiry, :user_id, :associated_device_id)`, &refreshToken)
+	} else {
+		result, err = db.NamedExec(`
+		INSERT INTO refresh_tokens (token_id, refresh_token, expiry, user_id, associated_device_id)
+		VALUES (:token_id, :refresh_token, :expiry, :user_id, :associated_device_id)`, &refreshToken)
+	}
+
 	if err != nil {
 		return nil, fmt.Errorf("error adding refresh token for user %s: %v", refreshToken.UserID, err)
 	}
@@ -206,6 +216,8 @@ func GetRefreshToken(userID uuid.UUID, deviceID string, tx *sqlx.Tx) (*model.Ref
 
 	// Use the transaction to execute the query
 	rows, err := tx.Query(query, userID, deviceID)
+	defer rows.Close()
+
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, nil
@@ -214,7 +226,6 @@ func GetRefreshToken(userID uuid.UUID, deviceID string, tx *sqlx.Tx) (*model.Ref
 		log.Printf("Error retrieving refresh token for user ID %s and device ID %s: %v", userID.String(), deviceID, err)
 		return nil, err
 	}
-	defer rows.Close()
 
 	// Scan the result into the refreshToken struct
 	if rows.Next() {
@@ -238,11 +249,48 @@ func GetRefreshToken(userID uuid.UUID, deviceID string, tx *sqlx.Tx) (*model.Ref
 }
 
 func DeleteRefreshToken(tokenID uuid.UUID, tx *sqlx.Tx) error {
-	_, err := tx.Exec(`
-		DELETE FROM refresh_tokens
-		WHERE token_id = $1`, tokenID)
+	var err error
+
+	// Use either the transaction or the default database connection
+	if tx != nil {
+		_, err = tx.Exec(`
+			DELETE FROM refresh_tokens
+			WHERE token_id = $1`, tokenID)
+	} else {
+		_, err = db.Exec(`
+			DELETE FROM refresh_tokens
+			WHERE token_id = $1`, tokenID)
+	}
+
+	// Handle any errors from the database operation
 	if err != nil {
 		return fmt.Errorf("error deleting refresh token with ID %s: %v", tokenID, err)
 	}
 	return nil
+}
+
+func GetRefreshTokenByRefreshToken(refreshToken string) (*model.RefreshToken, error) {
+	var token model.RefreshToken
+
+	query := `
+	SELECT * FROM refresh_tokens
+	WHERE refresh_token = $1`
+
+	rows, err := db.Query(query, refreshToken)
+	if err != nil {
+		return nil, fmt.Errorf("error querying refresh token: %v", err)
+	}
+	defer rows.Close()
+
+	// Check if a row was returned
+	if rows.Next() {
+		// Scan the result into the token struct
+		if err := rows.Scan(&token.TokenID, &token.RefreshToken, &token.Expiry, &token.UserID, &token.AssociatedDeviceID); err != nil {
+			return nil, fmt.Errorf("error scanning refresh token: %v", err)
+		}
+		return &token, nil
+	}
+
+	// No matching token found
+	return nil, &error2.RefreshTokenNotFoundInDBError{}
 }
