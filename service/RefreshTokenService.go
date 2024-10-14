@@ -18,7 +18,7 @@ type RefreshTokenService struct {
 
 func NewRefreshTokenService() *RefreshTokenService {
 	return &RefreshTokenService{
-		refreshTokenValidity: 10 * time.Second,
+		refreshTokenValidity: 24 * time.Hour,
 	}
 }
 
@@ -140,7 +140,7 @@ func (r *RefreshTokenService) Refresh(refreshTokenString string) (*model.JWTResp
 	}
 
 	// Create a new JWT token
-	newJWTToken, err := Auth.GenerateJWTOnly(refreshTokenModel.UserID.String(), []byte("JWT Secret"), 5*time.Minute)
+	newJWTToken, err := Auth.GenerateJWTOnly(refreshTokenModel.UserID.String(), []byte(Auth.JWTSecret), Auth.JWTTokenExpiryDuration)
 	if err != nil {
 		return nil, err
 	}

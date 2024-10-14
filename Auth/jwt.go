@@ -26,8 +26,9 @@ func GenerateJWTOnly(subject string, secret []byte, expiry time.Duration) (strin
 	expirationTime := time.Now().Add(expiry)
 
 	claims := &jwt.StandardClaims{
-		ExpiresAt: expirationTime.Unix(),
 		Subject:   subject,
+		IssuedAt:  time.Now().Unix(),
+		ExpiresAt: expirationTime.Unix(),
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)

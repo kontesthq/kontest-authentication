@@ -7,7 +7,6 @@ import (
 	"kontest-authentication/model"
 	"kontest-authentication/service"
 	"net/http"
-	"time"
 )
 
 func LoginHandler(w http.ResponseWriter, r *http.Request) {
@@ -40,7 +39,7 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 
 	fmt.Println(uid)
 
-	jwtToken, err := Auth.GenerateJWTOnly(uid.String(), []byte("JWT Secret"), 5*time.Minute)
+	jwtToken, err := Auth.GenerateJWTOnly(uid.String(), []byte(Auth.JWTSecret), Auth.JWTTokenExpiryDuration)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("error: %v", err), http.StatusInternalServerError)
 	}
