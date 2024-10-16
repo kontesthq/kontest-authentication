@@ -2,7 +2,7 @@ package main
 
 import (
 	"fmt"
-	consulServiceManager "github.com/ayushs-2k4/go-consul-service-manager"
+	consulServiceManager "github.com/ayushs-2k4/go-consul-service-manager/consulservicemanager"
 	"github.com/google/uuid"
 	"kontest-authentication/database"
 	"kontest-authentication/model"
@@ -18,7 +18,7 @@ import (
 
 var (
 	applicationHost = "localhost"                      // Default value for local development
-	applicationPort = "5155"                           // Default value for local development
+	applicationPort = 5155                             // Default value for local development
 	serviceName     = "KONTEST-AUTHENTICATION-SERVICE" // Service name for Service Registry
 	consulHost      = "localhost"                      // Default value for local development
 	consulPort      = 5150
@@ -33,14 +33,26 @@ var (
 )
 
 func initializeVariables() {
+	// Get the hostname of the machine
+	hostname, err := os.Hostname()
+	if err != nil {
+		log.Fatalf("Error fetching hostname: %v", err)
+	}
+
 	// Attempt to read the KONTEST_API_SERVER_HOST environment variable
 	if host := os.Getenv("KONTEST_AUTHENTICATION_SERVICE_HOST"); host != "" {
 		applicationHost = host // Override with the environment variable if set
+	} else {
+		applicationHost = hostname // Use the machine's hostname if the env var is not set
 	}
 
 	// Attempt to read the KONTEST_API_SERVER_PORT environment variable
 	if port := os.Getenv("KONTEST_AUTHENTICATION_SERVICE_PORT"); port != "" {
-		applicationPort = port // Override with the environment variable if set
+		parsedPort, err := strconv.Atoi(port)
+		if err != nil {
+			log.Fatalf("Invalid port value: %v", err)
+		}
+		applicationPort = parsedPort // Override with the environment variable if set
 	}
 
 	// Attempt to read the CONSUL_ADDRESS environment variable
@@ -94,13 +106,8 @@ func main() {
 	kafkaBroker := kafkaConfig.KafkaHost + ":" + kafkaConfig.KafkaPort
 	service.InitKafka(kafkaBroker)
 
-	portInt, err := strconv.Atoi(applicationPort)
-	if err != nil {
-		log.Fatalf("Failed to convert applicationPort to integer: %v", err)
-	}
-
 	consulService := consulServiceManager.NewConsulService(consulHost, consulPort)
-	consulService.Start(applicationHost, portInt, serviceName)
+	consulService.Start(applicationHost, applicationPort, serviceName, []string{})
 
 	// Initialize the database connection
 	database.InitializeDatabase(dbName, dbPort, dbHost, dbUser, dbPassword, map[bool]string{true: "enable", false: "disable"}[isSSLModeEnabled])
@@ -113,13 +120,13 @@ func main() {
 	routes.RegisterRoutes(router)
 
 	server := http.Server{
-		Addr:    ":" + applicationPort, // Use the field name Addr for the address
-		Handler: router,                // Use the field name Handler for the router
+		Addr:    ":" + strconv.Itoa(applicationPort), // Use the field name Addr for the address
+		Handler: router,                              // Use the field name Handler for the router
 	}
 
-	fmt.Println("Server listening at applicationPort: " + applicationPort)
+	fmt.Println("Server listening at applicationPort: " + strconv.Itoa(applicationPort))
 
-	err = server.ListenAndServe()
+	err := server.ListenAndServe()
 	if err != nil {
 		fmt.Println(err)
 		return

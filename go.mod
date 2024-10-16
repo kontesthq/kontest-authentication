@@ -3,7 +3,7 @@ module kontest-authentication
 go 1.23.2
 
 require (
-	github.com/ayushs-2k4/go-consul-service-manager v0.1.1
+	github.com/ayushs-2k4/go-consul-service-manager v0.1.3-beta-1
 	github.com/ayushs-2k4/go-security v0.1.6-beta
 	github.com/confluentinc/confluent-kafka-go/v2 v2.6.0
 	github.com/golang-jwt/jwt v3.2.2+incompatible
