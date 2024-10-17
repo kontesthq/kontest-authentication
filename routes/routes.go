@@ -21,4 +21,5 @@ func registerUserRoutes(router *http.ServeMux) {
 func registerAdminRoutes(router *http.ServeMux) {
 	router.HandleFunc("PUT /admin/makeAdmin", admin_handler.MakeAdminHandler)
 	router.HandleFunc("PUT /admin/makeNormal", admin_handler.MakeNormalHandler)
+	router.HandleFunc("DELETE /admin/deleteUser", admin_handler.DeleteUserHandler)
 }

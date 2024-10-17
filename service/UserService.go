@@ -138,7 +138,7 @@ func (us *UserService) Register(user model.User) (uuid.UUID, error) {
 		return uuid.Nil, errors.New("can not assign role to user")
 	}
 
-	// Publish the registration message to kafka_utils
+	// Publish the registration message to kafka
 	if err := PublishRegistrationMessage(user.Email); err != nil {
 		log.Printf("Failed to publish registration message: %v", err)
 	}
@@ -225,4 +225,25 @@ func (us *UserService) updateUserRoles(uid uuid.UUID, roleIDs []int) error {
 		return fmt.Errorf("failed to update roles for user %s: %v", uid, err)
 	}
 	return nil
+}
+
+func (us *UserService) DeleteUser(uid uuid.UUID) (bool, error) {
+	user, err := database.FindUserByID(uid)
+
+	if err != nil || user == nil {
+		return false, &error2.UserNotFoundError{}
+	}
+
+	hasUserDeleted, err := database.DeleteUser(uid, nil)
+
+	if err != nil || !hasUserDeleted {
+		return false, errors.New("can not delete user")
+	}
+
+	// Publish the deletion message to kafka
+	if err := PublishAccountDeletionEventToKafka(user.Email); err != nil {
+		slog.Error(fmt.Sprintf("failed to publish registration message: %v", err))
+	}
+
+	return true, nil
 }

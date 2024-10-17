@@ -49,8 +49,8 @@ func PublishMessage(topic string, message string) error {
 func PublishRegistrationMessage(email string) error {
 	// Create JSON message
 	jsonMessage := map[string]interface{}{
-		"email":            email,
-		"registrationDate": time.Now(),
+		"email":             email,
+		"registration_date": time.Now(),
 	}
 
 	// Convert the map to JSON string
@@ -68,6 +68,78 @@ func PublishRegistrationMessage(email string) error {
 	// Publish the message to kafka_utils using PublishMessage function
 	if err := PublishMessage(topic, string(jsonString)); err != nil {
 		return fmt.Errorf("failed to publish registration message: %v", err)
+	}
+
+	return nil
+}
+
+// PublishAccountDeletionMessage publishes a deletion message to kafka_utils
+func PublishAccountDeletionMessage(email string) error {
+	// Create JSON message
+	jsonMessage := map[string]interface{}{
+		"email":         email,
+		"deletion_date": time.Now(),
+	}
+
+	// Convert the map to JSON string
+	jsonString, err := json.Marshal(jsonMessage)
+	if err != nil {
+		return fmt.Errorf("error marshaling JSON: %v", err)
+	}
+
+	// Get the topic from environment variable
+	topic := kafka_utils.AccountDeletionEventTopic.DefaultValue
+	if topic == "" {
+		return fmt.Errorf("AccountDeletionEventTopic is not set in environment variables")
+	}
+
+	// Publish the message to kafka_utils using PublishMessage function
+	if err := PublishMessage(topic, string(jsonString)); err != nil {
+		return fmt.Errorf("failed to publish account deletion message: %v", err)
+	}
+
+	return nil
+}
+
+// PublishAccountDeletionEmailMessage publishes a deletion message to kafka_utils
+func PublishAccountDeletionEmailMessage(email string) error {
+	// Create JSON message
+	jsonMessage := map[string]interface{}{
+		"email":         email,
+		"deletion_date": time.Now(),
+	}
+
+	// Convert the map to JSON string
+	jsonString, err := json.Marshal(jsonMessage)
+	if err != nil {
+		return fmt.Errorf("error marshaling JSON: %v", err)
+	}
+
+	// Get the topic from environment variable
+	topic := kafka_utils.AccountDeletionEmailEventTopic.DefaultValue
+	if topic == "" {
+		return fmt.Errorf("AccountDeletionEventTopic is not set in environment variables")
+	}
+
+	// Publish the message to kafka_utils using PublishMessage function
+	if err := PublishMessage(topic, string(jsonString)); err != nil {
+		return fmt.Errorf("failed to publish account deletion message: %v", err)
+	}
+
+	return nil
+}
+
+func PublishAccountDeletionEventToKafka(email string) error {
+	err := PublishAccountDeletionMessage(email)
+
+	if err != nil {
+		return err
+	}
+
+	err = PublishAccountDeletionEmailMessage(email)
+
+	if err != nil {
+		return err
 	}
 
 	return nil

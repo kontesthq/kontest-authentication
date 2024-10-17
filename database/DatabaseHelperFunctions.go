@@ -194,6 +194,28 @@ func UpdateUserRoles(userID uuid.UUID, newRoleIDs []int, tx *sqlx.Tx) (sql.Resul
 	return nil, nil
 }
 
+func DeleteUser(userID uuid.UUID, tx *sqlx.Tx) (bool, error) {
+	deleteUserQuery := `DELETE FROM users WHERE id = $1`
+
+	var result sql.Result
+	var err error
+
+	if tx != nil {
+		// Execute the deletion within the transaction
+		result, err = tx.Exec(deleteUserQuery, userID)
+
+	} else {
+		// If no transaction is provided, use the default database connection
+		result, err = db.Exec(deleteUserQuery, userID)
+	}
+
+	if err != nil {
+		return false, fmt.Errorf("error deleting user ID %s: %v", userID, err)
+	}
+	rowsAffected, _ := result.RowsAffected()
+	return rowsAffected > 0, nil
+}
+
 func FindUserByEmail(email string) (*model.User, error) {
 	var user model.User
 
