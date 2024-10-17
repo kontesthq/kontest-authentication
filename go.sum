@@ -57,8 +57,11 @@ github.com/ayushs-2k4/go-consul-service-manager v0.1.1 h1:FMl16FvnVGDYtNXMzRIaXL
 github.com/ayushs-2k4/go-consul-service-manager v0.1.1/go.mod h1:KQV9AMpC4in7R0JbFgBbUjma69tCdd42Rtsv/kBCGMY=
 github.com/ayushs-2k4/go-consul-service-manager v0.1.3-beta-1 h1:OfXdTUlCLEdEmJIyXpDFzpTWhIRUxgSsUepmyf52Yxc=
 github.com/ayushs-2k4/go-consul-service-manager v0.1.3-beta-1/go.mod h1:KQV9AMpC4in7R0JbFgBbUjma69tCdd42Rtsv/kBCGMY=
+github.com/ayushs-2k4/go-security v0.1.5/go.mod h1:t+64c5kzToqzSXbVd0U7T9DT7DZSsRAwUecgVrye5xI=
 github.com/ayushs-2k4/go-security v0.1.6-beta h1:j0NM6wb8W/qNgqgaamHDs/ofz765mMr9vNn7LbheGkA=
 github.com/ayushs-2k4/go-security v0.1.6-beta/go.mod h1:t+64c5kzToqzSXbVd0U7T9DT7DZSsRAwUecgVrye5xI=
+github.com/ayushs-2k4/go-security v0.1.6-beta-2 h1:PQQAXl+4dNA6qPwQxL5/ilYjm8mnpHdQZa4yUc3dOP4=
+github.com/ayushs-2k4/go-security v0.1.6-beta-2/go.mod h1:t+64c5kzToqzSXbVd0U7T9DT7DZSsRAwUecgVrye5xI=
 github.com/beorn7/perks v0.0.0-20180321164747-3a771d992973/go.mod h1:Dwedo/Wpr24TaqPxmxbtue+5NUziq4I4S80YR8gNf3Q=
 github.com/beorn7/perks v1.0.0/go.mod h1:KWe93zE9D1o94FZ5RNwFwVgaQK1VOXiVxmqh+CedLV8=
 github.com/beorn7/perks v1.0.1 h1:VlbKKnNfV8bJzeqoa4cOKqO6bYr3WgKZxO8Z16+hsOM=

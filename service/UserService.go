@@ -3,9 +3,9 @@ package service
 import (
 	"errors"
 	"fmt"
-	"github.com/ayushs-2k4/go-security/Auth/FromJava/PasswordEncoder"
+	"github.com/ayushs-2k4/go-security/Auth"
+	"github.com/ayushs-2k4/go-security/Auth/PasswordEncoder"
 	"github.com/google/uuid"
-	"kontest-authentication/Auth"
 	"kontest-authentication/config"
 	"kontest-authentication/database"
 	error2 "kontest-authentication/error"
@@ -34,13 +34,13 @@ func NewUserService() *UserService {
 	return instance
 }
 
-func getUserDetails(email string) (*model.UserDetails, error) {
+func getUserDetails(email string) (Auth.UserDetails, error) {
 	user, err := database.FindUserByEmail(email)
 	if err != nil {
 		return nil, err
 	}
 
-	return model.NewMyUserDetailsImpl(user.ID, user.Email, user.Password), nil
+	return model.NewUserPrincipal(*user), nil
 }
 
 func changePassword(email, newPassword string) error {
@@ -145,16 +145,26 @@ func (us *UserService) Register(user model.User) (uuid.UUID, error) {
 	return uid, nil
 }
 
-func (us *UserService) DoAuthenticate(email, password string) (uuid.UUID, error) {
-	usernamePasswordAuthenticationMethod := Auth.NewUsernamePasswordAuthenticationMethod(email, password, config.GetDelegatePasswordEncoder(), getUserDetails, changePassword)
+func getUser(username string) (model.User, error) {
+	user, err := database.FindUserByEmail(username)
+	if err != nil {
+		return model.User{}, err
+	}
 
-	authenticated, err := usernamePasswordAuthenticationMethod.Authenticate(nil, nil)
+	return *user, nil
+}
+
+func (us *UserService) DoAuthenticate(email, password string) (uuid.UUID, error) {
+	//usernamePasswordAuthenticationMethod := Auth.NewUsernamePasswordAuthenticationMethod(email, password, config.GetDelegatePasswordEncoder(), true, getUserDetails, changePassword)
+	usernamePasswordAuthenticationMethod := Auth.NewUsernamePasswordAuthenticationMethod(email, password, nil, true, getUserDetails, changePassword)
+
+	authenticated, err := usernamePasswordAuthenticationMethod.Authenticate()
 	if err != nil || !authenticated {
 		log.Printf("Authentication failed with error: %s", err)
 		return uuid.Nil, err
 	}
 
-	userDetails, err := getUserDetails(email)
+	userDetails, err := getUser(email)
 
 	if err != nil {
 		log.Printf("Error getting user details: %s", err)
@@ -163,7 +173,7 @@ func (us *UserService) DoAuthenticate(email, password string) (uuid.UUID, error)
 
 	fmt.Printf("authenticated: %v\n", authenticated)
 
-	return userDetails.GetUID(), nil
+	return userDetails.ID, nil
 }
 
 // IsValidDeviceID validates the device ID format

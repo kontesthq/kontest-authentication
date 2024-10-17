@@ -120,8 +120,8 @@ func main() {
 	routes.RegisterRoutes(router)
 
 	server := http.Server{
-		Addr:    ":" + strconv.Itoa(applicationPort), // Use the field name Addr for the address
-		Handler: router,                              // Use the field name Handler for the router
+		Addr:    ":" + strconv.Itoa(applicationPort),
+		Handler: router,
 	}
 
 	fmt.Println("Server listening at applicationPort: " + strconv.Itoa(applicationPort))
