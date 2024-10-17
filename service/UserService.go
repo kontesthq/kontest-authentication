@@ -140,7 +140,7 @@ func (us *UserService) Register(user model.User) (uuid.UUID, error) {
 	}
 
 	// save user to spicedb
-	spicedb_utils.SaveDefaultUserToSpiceDB(user.ID.String())
+	spicedb_utils.SaveUserInSpiceDBWithDefaults(user.ID.String())
 
 	// Publish the registration message to kafka
 	if err := PublishRegistrationMessage(user.Email); err != nil {

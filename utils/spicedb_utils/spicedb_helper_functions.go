@@ -10,6 +10,7 @@ import (
 	"github.com/authzed/grpcutil"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
+	"io"
 	"log"
 	"log/slog"
 	"os"
@@ -163,14 +164,22 @@ func MakeUserMember(userID string) {
 func AssignRolesToUser(client *authzed.Client, userID string, roles []string, orgID string) {
 	ctx := context.Background()
 
-	// Firstly delete all existing roles
-	DeleteUserFromSpiceDB(userID)
+	currentRoles := GetRolesForUser(userID)
 
-	updates := make([]*pb.RelationshipUpdate, len(roles))
+	//Step 2: Identify roles to add and roles to remove
+	rolesToAdd := difference(roles, currentRoles)    // Roles in newRoles but not in currentRoles
+	rolesToRemove := difference(currentRoles, roles) // Roles in currentRoles but not in newRoles
 
-	// Create relationship updates for each role
-	for i, role := range roles {
-		updates[i] = &pb.RelationshipUpdate{
+	slog.Info(fmt.Sprintf("Roles to add: %s", rolesToAdd))
+	slog.Info(fmt.Sprintf("Roles to remove: %s", rolesToRemove))
+
+	// Step 3: Prepare relationship additionUpdates
+	additionUpdates := make([]*pb.RelationshipUpdate, len(rolesToAdd))
+	deletionUpdates := make([]*pb.DeleteRelationshipsRequest, len(rolesToRemove))
+
+	// Add roles that are missing
+	for i, role := range rolesToAdd {
+		additionUpdates[i] = &pb.RelationshipUpdate{
 			Operation: pb.RelationshipUpdate_OPERATION_TOUCH, // Use TOUCH to create or update the relationship
 			Relationship: &pb.Relationship{
 				Resource: &pb.ObjectReference{
@@ -188,19 +197,104 @@ func AssignRolesToUser(client *authzed.Client, userID string, roles []string, or
 		}
 	}
 
-	// Construct the request with all updates
-	request := &pb.WriteRelationshipsRequest{Updates: updates}
+	// Remove roles that are no longer needed
+	for i, role := range rolesToRemove {
+		deletionUpdates[i] = &pb.DeleteRelationshipsRequest{
+			RelationshipFilter: &pb.RelationshipFilter{
+				ResourceType:     ObjectTypeOrg, // Assuming roles are defined under an organization
+				OptionalRelation: role,          // The role (relation) to be removed
+				OptionalSubjectFilter: &pb.SubjectFilter{
+					SubjectType:       ObjectTypeUser, // User object
+					OptionalSubjectId: userID,         // User ID
+				},
+			},
+			// OptionalPreconditions and OptionalLimit can be nil or 0 if not needed
+			OptionalAllowPartialDeletions: false, // Set to false to avoid partial deletions
+		}
+	}
 
-	// Attempt to write the relationships
-	resp, err := client.WriteRelationships(ctx, request)
-	if err != nil {
-		slog.Error(fmt.Sprintf("failed to assign roles to user %s: %s", userID, err))
-	} else {
-		log.Printf("Roles %v assigned to user %s with token: %s\n", roles, userID, resp.WrittenAt.Token)
+	//Step 4: Apply batch additionUpdates to SpiceDB
+	if len(additionUpdates) > 0 {
+		_, err := client.WriteRelationships(ctx, &pb.WriteRelationshipsRequest{
+			Updates: additionUpdates,
+		})
+		if err != nil {
+			slog.Error(fmt.Sprintf("failed to update roles for user %s: %v", userID, err))
+		}
+	}
+
+	// Apply the deletions
+	for _, deleteReq := range deletionUpdates {
+		_, err := client.DeleteRelationships(ctx, deleteReq)
+		if err != nil {
+			slog.Error(fmt.Sprintf("failed to delete roles for user %s: %v", userID, err))
+		}
 	}
 }
 
-func SaveUserToSpiceDB(userID string, roles []string, orgID string) {
+func difference(slice1, slice2 []string) []string {
+	diff := []string{}
+	lookup := make(map[string]struct{}, len(slice2))
+	for _, item := range slice2 {
+		lookup[item] = struct{}{}
+	}
+
+	for _, item := range slice1 {
+		if _, found := lookup[item]; !found {
+			diff = append(diff, item)
+		}
+	}
+
+	return diff
+}
+
+func GetRolesForUser(userID string) []string {
+	client := GetSpiceDBClient()
+
+	ctx := context.Background()
+
+	// Construct the subject filter to filter by user
+	subjectFilter := &pb.SubjectFilter{
+		SubjectType:       ObjectTypeUser, // The type of the user object
+		OptionalSubjectId: userID,         // The ID of the user whose roles we are fetching
+	}
+
+	// Construct the request to read relationships
+	request := &pb.ReadRelationshipsRequest{
+		RelationshipFilter: &pb.RelationshipFilter{
+			ResourceType:          ObjectTypeOrg, // Assuming roles are defined under an organization
+			OptionalSubjectFilter: subjectFilter, // Filter for the specific user
+		},
+	}
+
+	// Attempt to read the relationships
+	stream, err := client.ReadRelationships(ctx, request)
+	if err != nil {
+		log.Printf("failed to read roles for user %s: %s", userID, err)
+		return nil
+	}
+
+	roles := []string{}
+
+	// Process the stream of results
+	for {
+		resp, err := stream.Recv()
+		if err == io.EOF {
+			break // End of the stream
+		}
+		if err != nil {
+			log.Printf("error receiving stream response for user %s: %s", userID, err)
+			return nil
+		}
+
+		// Extract the role (relation) and add it to the roles slice
+		roles = append(roles, resp.Relationship.Relation)
+	}
+
+	return roles
+}
+
+func SaveUserToSpiceDB(userID string, roles []string) {
 	ctx := context.Background()
 	client := GetSpiceDBClient()
 
@@ -259,7 +353,7 @@ func SaveUserToSpiceDB(userID string, roles []string, orgID string) {
 	}
 }
 
-func SaveUserToSpiceDBUsingGoRoutines(userID string, roles []string, orgID string) {
+func SaveUserToSpiceDBUsingGoRoutines(userID string, roles []string) {
 	ctx := context.Background()
 	client := GetSpiceDBClient()
 
@@ -338,9 +432,9 @@ func SaveUserToSpiceDBUsingGoRoutines(userID string, roles []string, orgID strin
 	close(roleChannel) // Close the channel to signal the writing goroutine to stop
 }
 
-func SaveDefaultUserToSpiceDB(userID string) {
+func SaveUserInSpiceDBWithDefaults(userID string) {
 	roles := []string{relationMember}
-	SaveUserToSpiceDBUsingGoRoutines(userID, roles, orgID)
+	SaveUserToSpiceDBUsingGoRoutines(userID, roles)
 }
 
 func DeleteUserFromSpiceDB(userID string) {
