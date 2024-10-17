@@ -11,6 +11,7 @@ import (
 	error2 "kontest-authentication/error"
 	"kontest-authentication/model"
 	"log"
+	"log/slog"
 	"regexp"
 	"sync"
 )
@@ -145,7 +146,7 @@ func (us *UserService) Register(user model.User) (uuid.UUID, error) {
 	return uid, nil
 }
 
-func getUser(username string) (model.User, error) {
+func getUserByEmail(username string) (model.User, error) {
 	user, err := database.FindUserByEmail(username)
 	if err != nil {
 		return model.User{}, err
@@ -163,7 +164,7 @@ func (us *UserService) DoAuthenticate(email, password string) (uuid.UUID, error)
 		return uuid.Nil, err
 	}
 
-	userDetails, err := getUser(email)
+	userDetails, err := getUserByEmail(email)
 
 	if err != nil {
 		log.Printf("Error getting user details: %s", err)
@@ -182,4 +183,46 @@ func (us *UserService) IsValidDeviceID(deviceID string) bool {
 
 	// Check if deviceID is not nil and matches the pattern
 	return deviceID != "" && regex.MatchString(deviceID)
+}
+
+func (us *UserService) MakeUserNormal(uid uuid.UUID) (bool, error) {
+	user, err := database.FindUserByID(uid)
+
+	if err != nil || user == nil {
+		return false, &error2.UserNotFoundError{}
+	}
+
+	err = us.updateUserRoles(uid, []int{model.GetRoleUser().ID})
+	if err != nil {
+		return false, err
+	}
+
+	slog.Info(fmt.Sprintf("User with uid %s has been made normal", uid.String()))
+
+	return true, nil
+}
+
+func (us *UserService) MakeUserAdmin(uid uuid.UUID) (bool, error) {
+	user, err := database.FindUserByID(uid)
+
+	if err != nil || user == nil {
+		return false, &error2.UserNotFoundError{}
+	}
+
+	err = us.updateUserRoles(uid, []int{model.GetRoleUser().ID, model.GetRoleAdmin().ID})
+	if err != nil {
+		return false, err
+	}
+
+	slog.Info(fmt.Sprintf("User with uid %s has been made an admin", uid.String()))
+
+	return true, nil
+}
+
+func (us *UserService) updateUserRoles(uid uuid.UUID, roleIDs []int) error {
+	_, err := database.UpdateUserRoles(uid, roleIDs, nil)
+	if err != nil {
+		return fmt.Errorf("failed to update roles for user %s: %v", uid, err)
+	}
+	return nil
 }

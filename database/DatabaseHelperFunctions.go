@@ -126,16 +126,72 @@ func FindRoleByName(roleName string) (*model.Role, error) {
 
 // AssignRoleToUser Function to assign a role to a user
 func AssignRoleToUser(userID uuid.UUID, roleID int, tx *sqlx.Tx) (sql.Result, error) {
-	result, err := tx.NamedExec(`
-		INSERT INTO user_roles (user_id, role_id)
-		VALUES (:user_id, :role_id)`, map[string]interface{}{
+	query := `
+			INSERT INTO user_roles (user_id, role_id)
+			VALUES (:user_id, :role_id)
+			ON CONFLICT (user_id, role_id) DO NOTHING
+		`
+
+	params := map[string]interface{}{
 		"user_id": userID,
 		"role_id": roleID,
-	})
+	}
+
+	var result sql.Result
+	var err error
+
+	if tx == nil {
+		result, err = db.NamedExec(query, params)
+	} else {
+		result, err = tx.NamedExec(query, params)
+	}
+
 	if err != nil {
 		return nil, fmt.Errorf("error assigning role ID %d to user ID %s: %v", roleID, userID, err)
 	}
 	return result, nil
+}
+
+func UpdateUserRoles(userID uuid.UUID, newRoleIDs []int, tx *sqlx.Tx) (sql.Result, error) {
+	// Start a transaction if no transaction is provided
+	var err error
+	if tx == nil {
+		tx, err = db.Beginx()
+		if err != nil {
+			return nil, err
+		}
+		defer tx.Rollback() // Ensure rollback on failure
+	}
+
+	// Step 1: Remove all existing roles for the user
+	_, err = tx.Exec(`
+        DELETE FROM user_roles
+        WHERE user_id = $1`, userID)
+	if err != nil {
+		return nil, fmt.Errorf("error removing roles for user ID %s: %v", userID, err)
+	}
+
+	// Step 2: Insert new roles
+	for _, roleID := range newRoleIDs {
+		_, err = tx.NamedExec(`
+            INSERT INTO user_roles (user_id, role_id)
+            VALUES (:user_id, :role_id)`, map[string]interface{}{
+			"user_id": userID,
+			"role_id": roleID,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("error assigning role ID %d to user ID %s: %v", roleID, userID, err)
+		}
+	}
+
+	// Commit the transaction if it was started here
+	if tx != nil {
+		if err := tx.Commit(); err != nil {
+			return nil, fmt.Errorf("error committing transaction: %v", err)
+		}
+	}
+
+	return nil, nil
 }
 
 func FindUserByEmail(email string) (*model.User, error) {
@@ -195,7 +251,9 @@ func FindUserByID(userID uuid.UUID) (*model.User, error) {
 func UpdateUser(user model.User, tx *sqlx.Tx) error {
 	_, err := tx.NamedExec(`
 		UPDATE users
-		SET password = :password
+		SET 
+		    password = :password,
+			email = :email
 		WHERE id = :id`, &user)
 
 	if err != nil {

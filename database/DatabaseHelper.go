@@ -135,14 +135,8 @@ func createTables() {
 
 func insertRoles() {
 	roles := []model.Role{
-		{
-			ID:   1,
-			Name: "USER",
-		},
-		{
-			ID:   2,
-			Name: "ADMIN",
-		},
+		model.GetRoleUser(),
+		model.GetRoleAdmin(),
 	}
 
 	db := GetDB()          // Get the database connection
