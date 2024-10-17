@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"kontest-authentication/model"
 	"kontest-authentication/service"
+	"kontest-authentication/utils/spicedb_utils"
 	"net/http"
 )
 
@@ -14,7 +15,19 @@ func MakeNormalHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	loggedInUserUID, err := GetLoggedInUserID(r)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusUnauthorized)
+		return
+	}
+
 	uid := updateUserRoleRequest.UID
+
+	isUserAllowed := spicedb_utils.HasPermissionForUserAction(loggedInUserUID.String(), updateUserRoleRequest.UID.String(), spicedb_utils.PermissionMakeMember)
+	if !isUserAllowed {
+		http.Error(w, "Error: admin only endpoint", http.StatusUnauthorized)
+		return
+	}
 
 	userService := service.NewUserService()
 

@@ -10,6 +10,7 @@ import (
 	"kontest-authentication/database"
 	error2 "kontest-authentication/error"
 	"kontest-authentication/model"
+	"kontest-authentication/utils/spicedb_utils"
 	"log"
 	"log/slog"
 	"regexp"
@@ -138,6 +139,9 @@ func (us *UserService) Register(user model.User) (uuid.UUID, error) {
 		return uuid.Nil, errors.New("can not assign role to user")
 	}
 
+	// save user to spicedb
+	spicedb_utils.SaveDefaultUserToSpiceDB(user.ID.String())
+
 	// Publish the registration message to kafka
 	if err := PublishRegistrationMessage(user.Email); err != nil {
 		log.Printf("Failed to publish registration message: %v", err)
@@ -197,6 +201,9 @@ func (us *UserService) MakeUserNormal(uid uuid.UUID) (bool, error) {
 		return false, err
 	}
 
+	// Changing roles in spicedb
+	spicedb_utils.MakeUserMember(uid.String())
+
 	slog.Info(fmt.Sprintf("User with uid %s has been made normal", uid.String()))
 
 	return true, nil
@@ -213,6 +220,9 @@ func (us *UserService) MakeUserAdmin(uid uuid.UUID) (bool, error) {
 	if err != nil {
 		return false, err
 	}
+
+	// Changing roles in spicedb
+	spicedb_utils.MakeUserAdmin(uid.String())
 
 	slog.Info(fmt.Sprintf("User with uid %s has been made an admin", uid.String()))
 
@@ -239,6 +249,9 @@ func (us *UserService) DeleteUser(uid uuid.UUID) (bool, error) {
 	if err != nil || !hasUserDeleted {
 		return false, errors.New("can not delete user")
 	}
+
+	// Delete from spicedb
+	spicedb_utils.DeleteUserFromSpiceDB(uid.String())
 
 	// Publish the deletion message to kafka
 	if err := PublishAccountDeletionEventToKafka(user.Email); err != nil {

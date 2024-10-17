@@ -32,13 +32,15 @@ func getEnv(key string, defaultValue string) string {
 }
 
 const (
-	ObjectTypeUser    = "user"
-	PermissionDelete  = "delete"
-	ObjectTypeOrg     = "organization"
-	relationMember    = "member"
-	relationAdmin     = "admin"
-	relationBelongsTo = "belongs_to"
-	orgID             = "my_org"
+	ObjectTypeUser       = "user"
+	PermissionDelete     = "delete"
+	PermissionMakeAdmin  = "make_admin"
+	PermissionMakeMember = "make_member"
+	ObjectTypeOrg        = "organization"
+	relationMember       = "member"
+	relationAdmin        = "admin"
+	relationBelongsTo    = "belongs_to"
+	orgID                = "my_org"
 )
 
 func GetSpiceDBClient() *authzed.Client {
@@ -76,6 +78,42 @@ func GetSpiceDBClient() *authzed.Client {
 	}
 
 	return client
+}
+
+func InitializeSpiceDBSchema(client *authzed.Client, schemaFilePath string) {
+	// Read schema from file
+	schema, err := os.ReadFile(schemaFilePath)
+	if err != nil {
+		log.Fatalf("Error reading schema file: %v", err)
+	}
+
+	// Write the schema
+	request := &pb.WriteSchemaRequest{Schema: string(schema)}
+	_, err = client.WriteSchema(context.Background(), request)
+	if err != nil {
+		log.Fatalf("failed to write schema: %s", err)
+	} else {
+		log.Println("schema written")
+	}
+}
+
+func HasPermissionForUserAction(loggedInUserID string, targetUserID string, permission string) bool {
+	subject := &pb.SubjectReference{Object: &pb.ObjectReference{
+
+		ObjectType: ObjectTypeUser,
+		ObjectId:   loggedInUserID,
+	}}
+
+	resource := &pb.ObjectReference{
+		ObjectType: ObjectTypeUser,
+		ObjectId:   targetUserID,
+	}
+
+	ctx := context.Background()
+
+	client := GetSpiceDBClient()
+
+	return CheckPermission(ctx, client, resource, subject, permission)
 }
 
 func CheckPermission(ctx context.Context, client *authzed.Client, resourceObj *pb.ObjectReference, subjectSub *pb.SubjectReference, permission string) bool {
@@ -116,8 +154,17 @@ func MakeUserAdmin(userID string) {
 	AssignRolesToUser(client, userID, []string{relationMember, relationAdmin}, orgID)
 }
 
+func MakeUserMember(userID string) {
+	client := GetSpiceDBClient()
+
+	AssignRolesToUser(client, userID, []string{relationMember}, orgID)
+}
+
 func AssignRolesToUser(client *authzed.Client, userID string, roles []string, orgID string) {
 	ctx := context.Background()
+
+	// Firstly delete all existing roles
+	DeleteUserFromSpiceDB(userID)
 
 	updates := make([]*pb.RelationshipUpdate, len(roles))
 
@@ -155,7 +202,7 @@ func AssignRolesToUser(client *authzed.Client, userID string, roles []string, or
 
 func SaveUserToSpiceDB(userID string, roles []string, orgID string) {
 	ctx := context.Background()
-	client := GetSpiceDBClient() // Assume this initializes and returns your SpiceDB client
+	client := GetSpiceDBClient()
 
 	updates := []*pb.RelationshipUpdate{}
 
@@ -214,7 +261,7 @@ func SaveUserToSpiceDB(userID string, roles []string, orgID string) {
 
 func SaveUserToSpiceDBUsingGoRoutines(userID string, roles []string, orgID string) {
 	ctx := context.Background()
-	client := GetSpiceDBClient() // Assume this initializes and returns your SpiceDB client
+	client := GetSpiceDBClient()
 
 	var wg sync.WaitGroup
 	roleChannel := make(chan *pb.RelationshipUpdate)
@@ -289,4 +336,48 @@ func SaveUserToSpiceDBUsingGoRoutines(userID string, roles []string, orgID strin
 	// Wait for all goroutines to finish
 	wg.Wait()
 	close(roleChannel) // Close the channel to signal the writing goroutine to stop
+}
+
+func SaveDefaultUserToSpiceDB(userID string) {
+	roles := []string{relationMember}
+	SaveUserToSpiceDBUsingGoRoutines(userID, roles, orgID)
+}
+
+func DeleteUserFromSpiceDB(userID string) {
+	ctx := context.Background()
+	client := GetSpiceDBClient()
+
+	// Step 1: Delete relationships where the user is the subject
+	deleteRelationshipsRequest := &pb.DeleteRelationshipsRequest{
+		RelationshipFilter: &pb.RelationshipFilter{
+			OptionalSubjectFilter: &pb.SubjectFilter{
+				SubjectType:       "user",
+				OptionalSubjectId: userID,
+			},
+		},
+	}
+
+	// Execute the delete relationships request
+	response, err := client.DeleteRelationships(ctx, deleteRelationshipsRequest)
+	if err != nil {
+		log.Printf("Failed to delete relationships for user %s: %s with response %s", userID, err, response)
+		return
+	}
+	log.Printf("Successfully deleted relationships for user %s with response %s", userID, response)
+
+	// Step 2: Delete the user object itself
+	deleteUserObjectRequest := &pb.DeleteRelationshipsRequest{
+		RelationshipFilter: &pb.RelationshipFilter{
+			ResourceType:       "user",
+			OptionalResourceId: userID,
+		},
+	}
+
+	// Execute the delete user object request
+	response, err = client.DeleteRelationships(ctx, deleteUserObjectRequest)
+	if err != nil {
+		log.Printf("Failed to delete user object %s: %s with response %s", userID, err, response)
+	} else {
+		log.Printf("Successfully deleted user object %s with response %s", userID, response)
+	}
 }

@@ -1,10 +1,10 @@
 package admin_handler
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
-	pb "github.com/authzed/authzed-go/proto/authzed/api/v1"
+	"github.com/google/uuid"
+	error2 "kontest-authentication/error"
 	"kontest-authentication/model"
 	"kontest-authentication/service"
 	"kontest-authentication/utils"
@@ -21,24 +21,15 @@ func DeleteUserHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Check if user is logged in or not
-	loggedInUserID := r.Header.Get(utils.UserIdRequestHeader)
-
-	if loggedInUserID == "" {
-		http.Error(w, "Error: admin only endpoint", http.StatusUnauthorized)
+	loggedInUserUID, err := GetLoggedInUserID(r)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusUnauthorized)
 		return
 	}
 
-	loggedInUserUID, err := utils.IsValidUUID(loggedInUserID)
 	slog.Info(fmt.Sprintf("loggedInUserUID: %s/n", loggedInUserUID))
 
-	if err != nil {
-		http.Error(w, "Error: admin only endpoint", http.StatusUnauthorized)
-		return
-	}
-
-	isUserAllowed := canDo(loggedInUserUID.String(), deleteUserRequest.UID.String())
-
+	isUserAllowed := spicedb_utils.HasPermissionForUserAction(loggedInUserUID.String(), deleteUserRequest.UID.String(), spicedb_utils.PermissionDelete)
 	if !isUserAllowed {
 		http.Error(w, "Error: admin only endpoint", http.StatusUnauthorized)
 		return
@@ -63,25 +54,17 @@ func DeleteUserHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte("User deleted successfully"))
 }
 
-// ********************************************************************************************************************* //
-
-func canDo(userIDOfLoggedInUser string, userIDOfRequestedUserToBeDelete string) bool {
-	subject := &pb.SubjectReference{Object: &pb.ObjectReference{
-
-		ObjectType: spicedb_utils.ObjectTypeUser,
-		ObjectId:   userIDOfLoggedInUser,
-	}}
-
-	resource := &pb.ObjectReference{
-		ObjectType: spicedb_utils.ObjectTypeUser,
-		ObjectId:   userIDOfRequestedUserToBeDelete,
+func GetLoggedInUserID(r *http.Request) (uuid.UUID, error) {
+	// Check if user is logged in or not
+	loggedInUserID := r.Header.Get(utils.UserIdRequestHeader)
+	if loggedInUserID == "" {
+		return uuid.Nil, &error2.AdminOnlyEndpointError{}
 	}
 
-	permission := spicedb_utils.PermissionDelete
+	loggedInUserUID, err := utils.IsValidUUID(loggedInUserID)
+	if err != nil {
+		return uuid.Nil, &error2.AdminOnlyEndpointError{}
+	}
 
-	ctx := context.Background()
-
-	client := spicedb_utils.GetSpiceDBClient()
-
-	return spicedb_utils.CheckPermission(ctx, client, resource, subject, permission)
+	return loggedInUserUID, nil
 }
