@@ -1,11 +1,14 @@
 package admin_handler
 
 import (
+	"context"
 	"encoding/json"
-	"github.com/google/uuid"
+	"fmt"
+	pb "github.com/authzed/authzed-go/proto/authzed/api/v1"
 	"kontest-authentication/model"
 	"kontest-authentication/service"
 	"kontest-authentication/utils"
+	"kontest-authentication/utils/spicedb_utils"
 	"log/slog"
 	"net/http"
 )
@@ -26,14 +29,15 @@ func DeleteUserHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	uid, err := utils.IsValidUUID(loggedInUserID)
+	loggedInUserUID, err := utils.IsValidUUID(loggedInUserID)
+	slog.Info(fmt.Sprintf("loggedInUserUID: %s/n", loggedInUserUID))
 
 	if err != nil {
 		http.Error(w, "Error: admin only endpoint", http.StatusUnauthorized)
 		return
 	}
 
-	isUserAllowed := checkIfUserIsAdmin(uid)
+	isUserAllowed := canDo(loggedInUserUID.String(), deleteUserRequest.UID.String())
 
 	if !isUserAllowed {
 		http.Error(w, "Error: admin only endpoint", http.StatusUnauthorized)
@@ -59,6 +63,25 @@ func DeleteUserHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte("User deleted successfully"))
 }
 
-func checkIfUserIsAdmin(userID uuid.UUID) bool {
-	return true
+// ********************************************************************************************************************* //
+
+func canDo(userIDOfLoggedInUser string, userIDOfRequestedUserToBeDelete string) bool {
+	subject := &pb.SubjectReference{Object: &pb.ObjectReference{
+
+		ObjectType: spicedb_utils.ObjectTypeUser,
+		ObjectId:   userIDOfLoggedInUser,
+	}}
+
+	resource := &pb.ObjectReference{
+		ObjectType: spicedb_utils.ObjectTypeUser,
+		ObjectId:   userIDOfRequestedUserToBeDelete,
+	}
+
+	permission := spicedb_utils.PermissionDelete
+
+	ctx := context.Background()
+
+	client := spicedb_utils.GetSpiceDBClient()
+
+	return spicedb_utils.CheckPermission(ctx, client, resource, subject, permission)
 }
