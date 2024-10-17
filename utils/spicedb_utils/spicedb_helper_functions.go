@@ -18,9 +18,11 @@ import (
 )
 
 var (
-	spicedbHost  = getEnv("SPICEDB_HOST", "localhost")
-	spicedbPort  = getEnv("SPICEDB_PORT", "50051")
-	spicedbToken = getEnv("SPICEDB_TOKEN", "spiceDBKey")
+	spicedbHost   = getEnv("SPICEDB_HOST", "localhost")
+	spicedbPort   = getEnv("SPICEDB_PORT", "50051")
+	spicedbToken  = getEnv("SPICEDB_TOKEN", "spiceDBKey")
+	once          sync.Once
+	spiceDBClient *authzed.Client
 )
 
 // getEnv retrieves the value of the environment variable named by the key.
@@ -45,40 +47,43 @@ const (
 )
 
 func GetSpiceDBClient() *authzed.Client {
-	// Load self-signed certificate
-	caCert, err := os.ReadFile("/Users/ayushsinghal/server.crt")
-	if err != nil {
-		log.Fatalf("failed to read CA certificate: %s", err)
-	}
+	once.Do(func() {
+		// Load self-signed certificate
+		caCert, err := os.ReadFile("/Users/ayushsinghal/server.crt")
+		if err != nil {
+			log.Fatalf("failed to read CA certificate: %s", err)
+		}
 
-	// Create a CA certificate pool and add the self-signed certificate
-	caCertPool := x509.NewCertPool()
-	if ok := caCertPool.AppendCertsFromPEM(caCert); !ok {
-		log.Fatalf("failed to append CA certificate")
-	}
+		// Create a CA certificate pool and add the self-signed certificate
+		caCertPool := x509.NewCertPool()
+		if ok := caCertPool.AppendCertsFromPEM(caCert); !ok {
+			log.Fatalf("failed to append CA certificate")
+		}
 
-	// Create a new TLS configuration
-	tlsConfig := &tls.Config{
-		RootCAs: caCertPool,
-	}
+		// Create a new TLS configuration
+		tlsConfig := &tls.Config{
+			RootCAs: caCertPool,
+		}
 
-	// Create the TLS credentials
-	creds := credentials.NewTLS(tlsConfig)
+		// Create the TLS credentials
+		creds := credentials.NewTLS(tlsConfig)
 
-	spicedbEndpoint := fmt.Sprintf("%s:%s", spicedbHost, spicedbPort)
+		spicedbEndpoint := fmt.Sprintf("%s:%s", spicedbHost, spicedbPort)
 
-	// Initialize the client with TLS credentials
-	client, err := authzed.NewClient(
-		spicedbEndpoint,
-		grpc.WithTransportCredentials(creds),
-		grpcutil.WithBearerToken(spicedbToken),
-	)
+		// Initialize the client with TLS credentials
+		spiceDBClient, err = authzed.NewClient(
+			spicedbEndpoint,
+			grpc.WithTransportCredentials(creds),
+			grpcutil.WithBearerToken(spicedbToken),
+		)
 
-	if err != nil {
-		log.Fatalf("unable to initialize client: %s", err)
-	}
+		if err != nil {
+			log.Fatalf("unable to initialize client: %s", err)
+		}
 
-	return client
+	})
+
+	return spiceDBClient
 }
 
 func InitializeSpiceDBSchema(client *authzed.Client, schemaFilePath string) {
