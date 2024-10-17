@@ -155,8 +155,7 @@ func getUser(username string) (model.User, error) {
 }
 
 func (us *UserService) DoAuthenticate(email, password string) (uuid.UUID, error) {
-	//usernamePasswordAuthenticationMethod := Auth.NewUsernamePasswordAuthenticationMethod(email, password, config.GetDelegatePasswordEncoder(), true, getUserDetails, changePassword)
-	usernamePasswordAuthenticationMethod := Auth.NewUsernamePasswordAuthenticationMethod(email, password, nil, true, getUserDetails, changePassword)
+	usernamePasswordAuthenticationMethod := Auth.NewUsernamePasswordAuthenticationMethod(email, password, delegatingPasswordEncoder, true, getUserDetails, changePassword)
 
 	authenticated, err := usernamePasswordAuthenticationMethod.Authenticate()
 	if err != nil || !authenticated {
