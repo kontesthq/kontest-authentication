@@ -8,7 +8,7 @@ import (
 	"net/http"
 )
 
-func MakeNormalHandler(w http.ResponseWriter, r *http.Request) {
+func MakeMemberHandler(w http.ResponseWriter, r *http.Request) {
 	var updateUserRoleRequest model.UpdateUserRoleRequest
 	if err := json.NewDecoder(r.Body).Decode(&updateUserRoleRequest); err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
@@ -31,7 +31,7 @@ func MakeNormalHandler(w http.ResponseWriter, r *http.Request) {
 
 	userService := service.NewUserService()
 
-	hasMade, err := userService.MakeUserNormal(uid)
+	hasMade, err := userService.MakeUserMember(uid)
 
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -39,10 +39,10 @@ func MakeNormalHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if !hasMade {
-		http.Error(w, "not able to make user normal", http.StatusInternalServerError)
+		http.Error(w, "not able to make user member", http.StatusInternalServerError)
 		return
 	}
 
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode("Made user normal")
+	json.NewEncoder(w).Encode("Made user member")
 }

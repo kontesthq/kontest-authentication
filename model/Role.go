@@ -13,12 +13,12 @@ type Role struct {
 var (
 	roleUser = Role{
 		ID:   1,
-		Name: "USER",
+		Name: "member",
 	}
 
 	roleAdmin = Role{
 		ID:   2,
-		Name: "ADMIN",
+		Name: "admin",
 	}
 )
 

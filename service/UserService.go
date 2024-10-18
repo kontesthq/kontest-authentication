@@ -189,7 +189,7 @@ func (us *UserService) IsValidDeviceID(deviceID string) bool {
 	return deviceID != "" && regex.MatchString(deviceID)
 }
 
-func (us *UserService) MakeUserNormal(uid uuid.UUID) (bool, error) {
+func (us *UserService) MakeUserMember(uid uuid.UUID) (bool, error) {
 	user, err := database.FindUserByID(uid)
 
 	if err != nil || user == nil {
@@ -204,7 +204,7 @@ func (us *UserService) MakeUserNormal(uid uuid.UUID) (bool, error) {
 	// Changing roles in spicedb
 	spicedb_utils.MakeUserMember(uid.String())
 
-	slog.Info(fmt.Sprintf("User with uid %s has been made normal", uid.String()))
+	slog.Info(fmt.Sprintf("User with uid %s has been made member", uid.String()))
 
 	return true, nil
 }
