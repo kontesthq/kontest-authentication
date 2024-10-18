@@ -9,20 +9,25 @@ import (
 	"github.com/authzed/authzed-go/v1"
 	"github.com/authzed/grpcutil"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/status"
 	"io"
 	"log"
 	"log/slog"
 	"os"
+	"path/filepath"
 	"sync"
 )
 
 var (
-	spicedbHost   = getEnv("SPICEDB_HOST", "localhost")
-	spicedbPort   = getEnv("SPICEDB_PORT", "50051")
-	spicedbToken  = getEnv("SPICEDB_TOKEN", "spiceDBKey")
-	once          sync.Once
-	spiceDBClient *authzed.Client
+	spicedbHost        = getEnv("SPICEDB_HOST", "localhost")
+	spicedbPort        = getEnv("SPICEDB_PORT", "50051")
+	spicedbToken       = getEnv("SPICEDB_TOKEN", "spiceDBKey")
+	spiceDBTLSCertPath = getEnv("SPICEDB_TLS_CERT_PATH", getSpiceDBTLSCertPath())
+	spiceDBSchemaPath  = getEnv("SPICEDB_SCHEMA_PATH", getSpiceDBSchemaFilePath())
+	once               sync.Once
+	spiceDBClient      *authzed.Client
 )
 
 // getEnv retrieves the value of the environment variable named by the key.
@@ -32,6 +37,44 @@ func getEnv(key string, defaultValue string) string {
 		return value
 	}
 	return defaultValue
+}
+
+func getSpiceDBSchemaFilePath() string {
+	// Get the current working directory
+	currentDir, err := os.Getwd()
+	if err != nil {
+		panic(err)
+	}
+
+	// Go one directory back
+	parentDir := filepath.Dir(currentDir)
+
+	// Define the schema file name
+	schemaFileName := "spicedb_schema.zed" // Change this to your actual schema file name
+
+	// Construct the full path to the schema file
+	fullSchemaPath := filepath.Join(parentDir, "/config/spicedb", schemaFileName)
+
+	return fullSchemaPath
+}
+
+func getSpiceDBTLSCertPath() string {
+	// Get the current working directory
+	currentDir, err := os.Getwd()
+	if err != nil {
+		panic(err)
+	}
+
+	// Go one directory back
+	parentDir := filepath.Dir(currentDir)
+
+	// Define the certificate file name
+	certFileName := "spicedb.crt"
+
+	// Construct the full path to the certificate file
+	fullCertPath := filepath.Join(parentDir, "/config/spicedb", certFileName)
+
+	return fullCertPath
 }
 
 const (
@@ -49,7 +92,7 @@ const (
 func GetSpiceDBClient() *authzed.Client {
 	once.Do(func() {
 		// Load self-signed certificate
-		caCert, err := os.ReadFile("/Users/ayushsinghal/server.crt")
+		caCert, err := os.ReadFile(spiceDBTLSCertPath)
 		if err != nil {
 			log.Fatalf("failed to read CA certificate: %s", err)
 		}
@@ -69,6 +112,7 @@ func GetSpiceDBClient() *authzed.Client {
 		creds := credentials.NewTLS(tlsConfig)
 
 		spicedbEndpoint := fmt.Sprintf("%s:%s", spicedbHost, spicedbPort)
+		fmt.Println("spicedbEndpoint: ", spicedbEndpoint)
 
 		// Initialize the client with TLS credentials
 		spiceDBClient, err = authzed.NewClient(
@@ -86,20 +130,37 @@ func GetSpiceDBClient() *authzed.Client {
 	return spiceDBClient
 }
 
-func InitializeSpiceDBSchema(client *authzed.Client, schemaFilePath string) {
+func InitializeSpiceDBSchema(client *authzed.Client) {
+	slog.Info(fmt.Sprintf("Initializing SpiceDB schema from file: %s", spiceDBSchemaPath))
+
 	// Read schema from file
-	schema, err := os.ReadFile(schemaFilePath)
+	schema, err := os.ReadFile(spiceDBSchemaPath)
 	if err != nil {
 		log.Fatalf("Error reading schema file: %v", err)
 	}
 
-	// Write the schema
-	request := &pb.WriteSchemaRequest{Schema: string(schema)}
-	_, err = client.WriteSchema(context.Background(), request)
+	// Check current schema
+	currentSchema, err := client.ReadSchema(context.Background(), &pb.ReadSchemaRequest{})
 	if err != nil {
-		log.Fatalf("failed to write schema: %s", err)
+		if s, ok := status.FromError(err); ok && s.Code() == codes.NotFound {
+			slog.Warn("spicedb schema not found")
+		} else {
+			slog.Error(fmt.Sprintf("failed to read schema: %s", err))
+			os.Exit(1)
+		}
+	}
+
+	if currentSchema == nil || currentSchema.SchemaText != string(schema) {
+		// Write the schema
+		request := &pb.WriteSchemaRequest{Schema: string(schema)}
+		_, err = client.WriteSchema(context.Background(), request)
+		if err != nil {
+			log.Fatalf("failed to write schema: %s", err)
+		} else {
+			log.Println("schema written")
+		}
 	} else {
-		log.Println("schema written")
+		log.Println("schema is already up to date")
 	}
 }
 
