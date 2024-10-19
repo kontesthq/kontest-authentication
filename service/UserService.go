@@ -150,13 +150,22 @@ func (us *UserService) Register(user model.User) (uuid.UUID, error) {
 	return uid, nil
 }
 
-func getUserByEmail(username string) (model.User, error) {
-	user, err := database.FindUserByEmail(username)
+func getUserByEmail(email string) (model.User, error) {
+	user, err := database.FindUserByEmail(email)
 	if err != nil {
 		return model.User{}, err
 	}
 
 	return *user, nil
+}
+
+func (us *UserService) GetUserByUserID(uid uuid.UUID) (*model.User, error) {
+	user, err := database.FindUserByID(uid)
+	if err != nil {
+		return nil, err
+	}
+
+	return user, nil
 }
 
 func (us *UserService) DoAuthenticate(email, password string) (uuid.UUID, error) {
