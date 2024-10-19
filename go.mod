@@ -5,12 +5,12 @@ go 1.23.2
 require (
 	github.com/authzed/authzed-go v1.0.0
 	github.com/authzed/grpcutil v0.0.0-20240123194739-2ea1e3d2d98b
-	github.com/ayushs-2k4/go-consul-service-manager v0.1.3-beta-1
 	github.com/ayushs-2k4/go-security v0.1.6-beta-2
 	github.com/confluentinc/confluent-kafka-go/v2 v2.6.0
 	github.com/golang-jwt/jwt v3.2.2+incompatible
 	github.com/google/uuid v1.6.0
 	github.com/jmoiron/sqlx v1.4.0
+	github.com/kontesthq/go-consul-service-manager v0.1.3-beta-4
 	github.com/lib/pq v1.10.9
 	google.golang.org/grpc v1.66.2
 )
@@ -32,6 +32,7 @@ require (
 	github.com/hashicorp/go-immutable-radix v1.3.1 // indirect
 	github.com/hashicorp/go-multierror v1.1.1 // indirect
 	github.com/hashicorp/go-rootcerts v1.0.2 // indirect
+	github.com/hashicorp/go-uuid v1.0.3 // indirect
 	github.com/hashicorp/golang-lru v0.5.4 // indirect
 	github.com/hashicorp/serf v0.10.1 // indirect
 	github.com/jzelinskie/stringz v0.0.3 // indirect

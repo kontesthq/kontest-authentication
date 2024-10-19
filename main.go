@@ -2,8 +2,8 @@ package main
 
 import (
 	"fmt"
-	consulServiceManager "github.com/ayushs-2k4/go-consul-service-manager/consulservicemanager"
 	"github.com/google/uuid"
+	consulServiceManager "github.com/kontesthq/go-consul-service-manager/consulservicemanager"
 	"kontest-authentication/database"
 	"kontest-authentication/model"
 	"kontest-authentication/routes"
