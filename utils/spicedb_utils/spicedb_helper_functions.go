@@ -215,19 +215,21 @@ func handleError(err error, msg string) {
 	}
 }
 
-func MakeUserAdmin(userID string) {
+func MakeUserAdmin(userID string) error {
 	client := GetSpiceDBClient()
 
-	AssignRolesToUser(client, userID, []string{relationMember, relationAdmin}, orgID)
+	err := AssignRolesToUser(client, userID, []string{relationMember, relationAdmin}, orgID)
+	return err
 }
 
-func MakeUserMember(userID string) {
+func MakeUserMember(userID string) error {
 	client := GetSpiceDBClient()
 
-	AssignRolesToUser(client, userID, []string{relationMember}, orgID)
+	err := AssignRolesToUser(client, userID, []string{relationMember}, orgID)
+	return err
 }
 
-func AssignRolesToUser(client *authzed.Client, userID string, roles []string, orgID string) {
+func AssignRolesToUser(client *authzed.Client, userID string, roles []string, orgID string) error {
 	ctx := context.Background()
 
 	currentRoles := GetRolesForUser(userID)
@@ -286,6 +288,7 @@ func AssignRolesToUser(client *authzed.Client, userID string, roles []string, or
 		})
 		if err != nil {
 			slog.Error(fmt.Sprintf("failed to update roles for user %s: %v", userID, err))
+			return err
 		}
 	}
 
@@ -294,8 +297,11 @@ func AssignRolesToUser(client *authzed.Client, userID string, roles []string, or
 		_, err := client.DeleteRelationships(ctx, deleteReq)
 		if err != nil {
 			slog.Error(fmt.Sprintf("failed to delete roles for user %s: %v", userID, err))
+			return err
 		}
 	}
+
+	return nil
 }
 
 func difference(slice1, slice2 []string) []string {
@@ -360,11 +366,11 @@ func GetRolesForUser(userID string) []string {
 	return roles
 }
 
-func SaveUserToSpiceDB(userID string, roles []string) {
+func SaveUserToSpiceDB(userID string, roles []string) error {
 	ctx := context.Background()
 	client := GetSpiceDBClient()
 
-	updates := []*pb.RelationshipUpdate{}
+	var updates []*pb.RelationshipUpdate
 
 	// Iterate over the roles and create relationship updates
 	for _, role := range roles {
@@ -414,8 +420,10 @@ func SaveUserToSpiceDB(userID string, roles []string) {
 	resp, err := client.WriteRelationships(ctx, request)
 	if err != nil {
 		log.Printf("failed to save roles for user %s in organization %s: %s", userID, orgID, err)
+		return err
 	} else {
 		log.Printf("Roles %v and 'belongs_to' relationship assigned to user %s in organization %s with token: %s\n", roles, userID, orgID, resp.WrittenAt.Token)
+		return nil
 	}
 }
 
@@ -498,9 +506,9 @@ func SaveUserToSpiceDBUsingGoRoutines(userID string, roles []string) {
 	close(roleChannel) // Close the channel to signal the writing goroutine to stop
 }
 
-func SaveUserInSpiceDBWithDefaults(userID string) {
+func SaveUserInSpiceDBWithDefaults(userID string) error {
 	roles := []string{relationMember}
-	SaveUserToSpiceDBUsingGoRoutines(userID, roles)
+	return SaveUserToSpiceDB(userID, roles)
 }
 
 func DeleteUserFromSpiceDB(userID string) {

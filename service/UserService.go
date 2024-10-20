@@ -6,6 +6,7 @@ import (
 	"github.com/ayushs-2k4/go-security/Auth"
 	"github.com/ayushs-2k4/go-security/Auth/PasswordEncoder"
 	"github.com/google/uuid"
+	"github.com/jmoiron/sqlx"
 	"kontest-authentication/config"
 	"kontest-authentication/database"
 	error2 "kontest-authentication/error"
@@ -140,7 +141,10 @@ func (us *UserService) Register(user model.User) (uuid.UUID, error) {
 	}
 
 	// save user to spicedb
-	spicedb_utils.SaveUserInSpiceDBWithDefaults(user.ID.String())
+	err = spicedb_utils.SaveUserInSpiceDBWithDefaults(user.ID.String())
+	if err != nil {
+		return uuid.Nil, err
+	}
 
 	// Publish the registration message to kafka
 	if err := PublishRegistrationMessage(user.Email); err != nil {
@@ -201,45 +205,84 @@ func (us *UserService) IsValidDeviceID(deviceID string) bool {
 func (us *UserService) MakeUserMember(uid uuid.UUID) (bool, error) {
 	user, err := database.FindUserByID(uid)
 
-	if err != nil || user == nil {
+	if err != nil {
+		return false, fmt.Errorf("failed to find user by ID: %w", err)
+	}
+	if user == nil {
 		return false, &error2.UserNotFoundError{}
 	}
 
-	err = us.updateUserRoles(uid, []int{model.GetRoleUser().ID})
+	tx := database.GetDB().MustBegin()
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+			slog.Error(fmt.Sprintf("Panic occurred: %v", r))
+		} else if err != nil {
+			tx.Rollback()
+		} else {
+			if commitErr := tx.Commit(); commitErr != nil {
+				slog.Error(fmt.Sprintf("Failed to commit transaction: %v", commitErr))
+			}
+		}
+	}()
+
+	err = us.updateUserRoles(uid, []int{model.GetRoleUser().ID}, tx)
 	if err != nil {
 		return false, err
 	}
 
 	// Changing roles in spicedb
-	spicedb_utils.MakeUserMember(uid.String())
+	err = spicedb_utils.MakeUserMember(uid.String())
+	if err != nil {
+		return false, err
+	}
 
 	slog.Info(fmt.Sprintf("User with uid %s has been made member", uid.String()))
-
 	return true, nil
 }
 
 func (us *UserService) MakeUserAdmin(uid uuid.UUID) (bool, error) {
 	user, err := database.FindUserByID(uid)
 
-	if err != nil || user == nil {
+	if err != nil {
+		return false, fmt.Errorf("failed to find user by ID: %w", err)
+	}
+	if user == nil {
 		return false, &error2.UserNotFoundError{}
 	}
 
-	err = us.updateUserRoles(uid, []int{model.GetRoleUser().ID, model.GetRoleAdmin().ID})
+	tx := database.GetDB().MustBegin()
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+			slog.Error(fmt.Sprintf("Panic occurred: %v", r))
+		} else if err != nil {
+			tx.Rollback()
+		} else {
+			if commitErr := tx.Commit(); commitErr != nil {
+				slog.Error(fmt.Sprintf("Failed to commit transaction: %v", commitErr))
+			}
+		}
+	}()
+
+	// Updating roles in DB
+	err = us.updateUserRoles(uid, []int{model.GetRoleUser().ID, model.GetRoleAdmin().ID}, tx)
 	if err != nil {
 		return false, err
 	}
 
-	// Changing roles in spicedb
-	spicedb_utils.MakeUserAdmin(uid.String())
+	// Updating roles in spicedb
+	err = spicedb_utils.MakeUserAdmin(uid.String())
+	if err != nil {
+		return false, err
+	}
 
 	slog.Info(fmt.Sprintf("User with uid %s has been made an admin", uid.String()))
-
 	return true, nil
 }
 
-func (us *UserService) updateUserRoles(uid uuid.UUID, roleIDs []int) error {
-	_, err := database.UpdateUserRoles(uid, roleIDs, nil)
+func (us *UserService) updateUserRoles(uid uuid.UUID, roleIDs []int, tx *sqlx.Tx) error {
+	_, err := database.UpdateUserRoles(uid, roleIDs, tx)
 	if err != nil {
 		return fmt.Errorf("failed to update roles for user %s: %v", uid, err)
 	}
