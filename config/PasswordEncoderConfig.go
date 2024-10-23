@@ -1,7 +1,7 @@
 package config
 
 import (
-	"github.com/ayushs-2k4/go-security/Auth/PasswordEncoder"
+	"github.com/kontesthq/go-security/Auth/PasswordEncoder"
 	"log"
 	"sync"
 )

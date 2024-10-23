@@ -3,10 +3,11 @@ package service
 import (
 	"errors"
 	"fmt"
-	"github.com/ayushs-2k4/go-security/Auth"
-	"github.com/ayushs-2k4/go-security/Auth/PasswordEncoder"
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
+	"github.com/kontesthq/go-security/Auth"
+	"github.com/kontesthq/go-security/Auth/PasswordEncoder"
+	"github.com/kontesthq/go-security/Auth/username_password"
 	"kontest-authentication/config"
 	"kontest-authentication/database"
 	error2 "kontest-authentication/error"
@@ -173,9 +174,9 @@ func (us *UserService) GetUserByUserID(uid uuid.UUID) (*model.User, error) {
 }
 
 func (us *UserService) DoAuthenticate(email, password string) (uuid.UUID, error) {
-	usernamePasswordAuthenticationMethod := Auth.NewUsernamePasswordAuthenticationMethod(email, password, delegatingPasswordEncoder, true, getUserDetails, changePassword)
+	usernamePasswordAuthenticationMethod := username_password.NewUsernamePasswordAuthenticationMethod(email, password, delegatingPasswordEncoder, true, getUserDetails, changePassword)
 
-	authenticated, err := usernamePasswordAuthenticationMethod.Authenticate()
+	authenticated, _, err := usernamePasswordAuthenticationMethod.Authenticate()
 	if err != nil || !authenticated {
 		log.Printf("Authentication failed with error: %s", err)
 		return uuid.Nil, err
