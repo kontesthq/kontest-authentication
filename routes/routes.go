@@ -18,6 +18,9 @@ func registerUserRoutes(router *http.ServeMux) {
 	router.HandleFunc("POST /user/logout", user_handler.LogoutHandler)
 	router.HandleFunc("POST /user/register", user_handler.RegisterHandler)
 	router.HandleFunc("PUT /user/refresh", user_handler.RefreshHandler)
+
+	router.HandleFunc("PUT /user/generate-login-ott", user_handler.OTTLoginGenerateHandler)
+	router.HandleFunc("PUT /user/validate-login-ott", user_handler.ValidateLoginOTT)
 }
 
 func registerAdminRoutes(router *http.ServeMux) {

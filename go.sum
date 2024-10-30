@@ -61,8 +61,6 @@ github.com/aws/aws-sdk-go-v2/service/sts v1.28.6 h1:cwIxeBttqPN3qkaAjcEcsh8NYr8n
 github.com/aws/aws-sdk-go-v2/service/sts v1.28.6/go.mod h1:FZf1/nKNEkHdGGJP/cI2MoIMquumuRK6ol3QQJNDxmw=
 github.com/aws/smithy-go v1.20.2 h1:tbp628ireGtzcHDDmLT/6ADHidqnwgF57XOXZe6tp4Q=
 github.com/aws/smithy-go v1.20.2/go.mod h1:krry+ya/rV9RDcV/Q16kpu6ypI4K2czasz0NC3qS14E=
-github.com/ayushs-2k4/go-security v0.1.6-beta-2 h1:PQQAXl+4dNA6qPwQxL5/ilYjm8mnpHdQZa4yUc3dOP4=
-github.com/ayushs-2k4/go-security v0.1.6-beta-2/go.mod h1:t+64c5kzToqzSXbVd0U7T9DT7DZSsRAwUecgVrye5xI=
 github.com/benbjohnson/clock v1.1.0/go.mod h1:J11/hYXuz8f4ySSvYwY0FKfm+ezbsZBKZxNJlLklBHA=
 github.com/beorn7/perks v0.0.0-20180321164747-3a771d992973/go.mod h1:Dwedo/Wpr24TaqPxmxbtue+5NUziq4I4S80YR8gNf3Q=
 github.com/beorn7/perks v1.0.0/go.mod h1:KWe93zE9D1o94FZ5RNwFwVgaQK1VOXiVxmqh+CedLV8=
@@ -292,10 +290,8 @@ github.com/klauspost/compress v1.17.9/go.mod h1:Di0epgTjJY877eYKx5yC51cX2A2Vl2ib
 github.com/konsorten/go-windows-terminal-sequences v1.0.1/go.mod h1:T0+1ngSBFLxvqU3pZ+m/2kptfBszLMUkC4ZK/EgS/cQ=
 github.com/kontesthq/go-consul-service-manager v0.1.3-beta-4 h1:HVOflNMYfnQBbO8ZsFtcyMfbIt8/FirRK2uzFnq/Ymo=
 github.com/kontesthq/go-consul-service-manager v0.1.3-beta-4/go.mod h1:3qylVmGBgPxjknlGY0tgRY0m/KVQxVdagaDxOfXWrHk=
-github.com/kontesthq/go-security v0.2.0-beta-3 h1:BDxs8XNlVbG5HoXnsnP1LQyDLg5tS1uRJkvPz39srrU=
-github.com/kontesthq/go-security v0.2.0-beta-3/go.mod h1:cCYHj1lfRFdiZhBbJPXh7mpxB5ObdliLnQYUhaIYQtk=
-github.com/kontesthq/go-security v0.2.0-beta-4 h1:73VwWyVgv7w6TGEoCcPoAkD23YrLbudghtIOl2mYBLI=
-github.com/kontesthq/go-security v0.2.0-beta-4/go.mod h1:cCYHj1lfRFdiZhBbJPXh7mpxB5ObdliLnQYUhaIYQtk=
+github.com/kontesthq/go-security v0.2.0-beta-5 h1:VYvKCMt1X5n4XDPccqDv2WjeVwL8Boh0BmDgswjBypY=
+github.com/kontesthq/go-security v0.2.0-beta-5/go.mod h1:3eFVvXQkz52tyXuC4iKhbWdK7CfjupDpSRKvv/hWTMk=
 github.com/kr/logfmt v0.0.0-20140226030751-b84e30acd515/go.mod h1:+0opPa2QZZtGFBFZlji/RkVcI2GknAs/DXo4wKdlNEc=
 github.com/kr/pretty v0.1.0/go.mod h1:dAy3ld7l9f0ibDNOQOHHMYYIIbhfbHSm3C4ZsoJORNo=
 github.com/kr/pretty v0.3.1 h1:flRD4NNwYAUpkphVc1HcthR4KEIFJ65n8Mw5qdRn3LE=

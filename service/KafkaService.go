@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
+	"github.com/pkg/errors"
 	"kontest-authentication/utils/kafka_utils"
 	"log"
 	"time"
@@ -140,6 +141,33 @@ func PublishAccountDeletionEventToKafka(email string) error {
 
 	if err != nil {
 		return err
+	}
+
+	return nil
+}
+
+func PublishLoginOTTEmailEventToKafka(email string, token string) error {
+	// Create JSON message
+	jsonMessage := map[string]interface{}{
+		"email": email,
+		"ott":   token,
+	}
+
+	// Convert the map to JSON string
+	jsonString, err := json.Marshal(jsonMessage)
+	if err != nil {
+		return errors.Errorf("error marshaling JSON: %v", err)
+	}
+
+	// Get the topic from environment variable
+	topic := kafka_utils.LoginOTTEmailEventTopic.DefaultValue
+	if topic == "" {
+		return errors.Errorf("LoginOTTEventTopic is not set in environment variables")
+	}
+
+	// Publish the message to kafka_utils using PublishMessage function
+	if err := PublishMessage(topic, string(jsonString)); err != nil {
+		return errors.Errorf("failed to publish login ott message: %v", err)
 	}
 
 	return nil

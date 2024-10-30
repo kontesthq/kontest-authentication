@@ -12,6 +12,7 @@ import (
 	"kontest-authentication/database"
 	error2 "kontest-authentication/error"
 	"kontest-authentication/model"
+	"kontest-authentication/utils"
 	"kontest-authentication/utils/spicedb_utils"
 	"log"
 	"log/slog"
@@ -38,13 +39,36 @@ func NewUserService() *UserService {
 	return instance
 }
 
-func getUserDetails(email string) (Auth.UserDetails, error) {
-	user, err := database.FindUserByEmail(email)
+func GetUserDetailsByEmail(email string) (Auth.UserDetails, error) {
+	user, err := GetUserByEmail(email)
 	if err != nil {
 		return nil, err
 	}
 
 	return model.NewUserPrincipal(*user), nil
+}
+
+func GetUserByEmail(email string) (*model.User, error) {
+	user, err := database.FindUserByEmail(email)
+	if err != nil {
+		return nil, err
+	}
+
+	return user, nil
+}
+
+func GetUserByUserID(userID string) (*model.User, error) {
+	uid, err := utils.IsValidUUID(userID)
+	if err != nil {
+		return nil, err
+	}
+
+	user, err := database.FindUserByID(uid)
+	if err != nil {
+		return nil, err
+	}
+
+	return user, nil
 }
 
 func changePassword(email, newPassword string) error {
@@ -174,7 +198,7 @@ func (us *UserService) GetUserByUserID(uid uuid.UUID) (*model.User, error) {
 }
 
 func (us *UserService) DoAuthenticate(email, password string) (uuid.UUID, error) {
-	usernamePasswordAuthenticationMethod := username_password.NewUsernamePasswordAuthenticationProvider(delegatingPasswordEncoder, true, getUserDetails, changePassword)
+	usernamePasswordAuthenticationMethod := username_password.NewUsernamePasswordAuthenticationProvider(delegatingPasswordEncoder, true, GetUserDetailsByEmail, changePassword)
 
 	usernamePasswordToken := username_password.NewUsernamePasswordAuthenticationToken(email, password)
 
