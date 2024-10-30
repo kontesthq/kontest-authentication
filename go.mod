@@ -5,7 +5,7 @@ go 1.23.2
 require (
 	github.com/authzed/authzed-go v1.0.0
 	github.com/authzed/grpcutil v0.0.0-20240123194739-2ea1e3d2d98b
-	github.com/kontesthq/go-security v0.2.0-beta-3
+	github.com/kontesthq/go-security v0.2.0-beta-4
 	github.com/confluentinc/confluent-kafka-go/v2 v2.6.0
 	github.com/golang-jwt/jwt v3.2.2+incompatible
 	github.com/google/uuid v1.6.0

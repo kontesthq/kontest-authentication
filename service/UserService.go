@@ -174,10 +174,12 @@ func (us *UserService) GetUserByUserID(uid uuid.UUID) (*model.User, error) {
 }
 
 func (us *UserService) DoAuthenticate(email, password string) (uuid.UUID, error) {
-	usernamePasswordAuthenticationMethod := username_password.NewUsernamePasswordAuthenticationMethod(email, password, delegatingPasswordEncoder, true, getUserDetails, changePassword)
+	usernamePasswordAuthenticationMethod := username_password.NewUsernamePasswordAuthenticationProvider(delegatingPasswordEncoder, true, getUserDetails, changePassword)
 
-	authenticated, _, err := usernamePasswordAuthenticationMethod.Authenticate()
-	if err != nil || !authenticated {
+	usernamePasswordToken := username_password.NewUsernamePasswordAuthenticationToken(email, password)
+
+	authentication, err := usernamePasswordAuthenticationMethod.Authenticate(usernamePasswordToken)
+	if err != nil || !authentication.IsAuthenticated() {
 		log.Printf("Authentication failed with error: %s", err)
 		return uuid.Nil, err
 	}
@@ -189,7 +191,7 @@ func (us *UserService) DoAuthenticate(email, password string) (uuid.UUID, error)
 		return uuid.Nil, err
 	}
 
-	fmt.Printf("authenticated: %v\n", authenticated)
+	fmt.Printf("authenticated: %v\n", authentication.IsAuthenticated())
 
 	return userDetails.ID, nil
 }
