@@ -10,4 +10,5 @@ var (
 	AccountDeletionEventTopic      = KafkaTopic{"KAFKA_ACCOUNT_DELETION_EVENT_TOPIC", "account-deletion-event"}
 	AccountDeletionEmailEventTopic = KafkaTopic{"KAFKA_ACCOUNT_DELETION_EMAIL_EVENT_TOPIC", "account-deletion-email-event"}
 	PasswordChangeEmailEventTopic  = KafkaTopic{"KAFKA_PASSWORD_CHANGE_EMAIL_EVENT_TOPIC", "password-change-email-event"}
+	LoginOTTEmailEventTopic        = KafkaTopic{"KAFKA_LOGIN_OTT_EMAIL_EVENT_TOPIC", "login-ott-email-event"}
 )

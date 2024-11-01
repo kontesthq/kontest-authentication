@@ -8,3 +8,26 @@ type Role struct {
 	Name    string      `db:"name"`     // Role name
 	UserIDs []uuid.UUID `db:"user_ids"` // Many-to-many relationship with User (only IDs stored)
 }
+
+// Private variables (unexported)
+var (
+	roleUser = Role{
+		ID:   1,
+		Name: "member",
+	}
+
+	roleAdmin = Role{
+		ID:   2,
+		Name: "admin",
+	}
+)
+
+// Getter functions to access roles
+
+func GetRoleUser() Role {
+	return roleUser
+}
+
+func GetRoleAdmin() Role {
+	return roleAdmin
+}

@@ -1,12 +1,34 @@
 package routes
 
 import (
-	"kontest-authentication/handlers"
+	"kontest-authentication/handlers/admin_handler"
+	"kontest-authentication/handlers/internal_handler"
+	"kontest-authentication/handlers/user_handler"
 	"net/http"
 )
 
 func RegisterRoutes(router *http.ServeMux) {
-	router.HandleFunc("/login", handlers.LoginHandler)
-	router.HandleFunc("/logout", handlers.LogoutHandler)
-	router.HandleFunc("/register", handlers.RegisterHandler)
+	registerUserRoutes(router)
+	registerAdminRoutes(router)
+	registerInternalRoutes(router)
+}
+
+func registerUserRoutes(router *http.ServeMux) {
+	router.HandleFunc("PUT /user/login", user_handler.LoginHandler)
+	router.HandleFunc("POST /user/logout", user_handler.LogoutHandler)
+	router.HandleFunc("POST /user/register", user_handler.RegisterHandler)
+	router.HandleFunc("PUT /user/refresh", user_handler.RefreshHandler)
+
+	router.HandleFunc("PUT /user/generate-login-ott", user_handler.OTTLoginGenerateHandler)
+	router.HandleFunc("PUT /user/validate-login-ott", user_handler.ValidateLoginOTT)
+}
+
+func registerAdminRoutes(router *http.ServeMux) {
+	router.HandleFunc("PUT /admin/makeAdmin", admin_handler.MakeAdminHandler)
+	router.HandleFunc("PUT /admin/makeMember", admin_handler.MakeMemberHandler)
+	router.HandleFunc("DELETE /admin/deleteUser", admin_handler.DeleteUserHandler)
+}
+
+func registerInternalRoutes(router *http.ServeMux) {
+	router.HandleFunc("GET /internal/email", internal_handler.GetEmail)
 }

@@ -2,14 +2,16 @@ package main
 
 import (
 	"fmt"
-	consulServiceManager "github.com/ayushs-2k4/go-consul-service-manager"
 	"github.com/google/uuid"
+	consulServiceManager "github.com/kontesthq/go-consul-service-manager/consulservicemanager"
 	"kontest-authentication/database"
 	"kontest-authentication/model"
 	"kontest-authentication/routes"
 	"kontest-authentication/service"
 	"kontest-authentication/utils/kafka_utils"
+	"kontest-authentication/utils/spicedb_utils"
 	"log"
+	"log/slog"
 	"net/http"
 	"os"
 	"strconv"
@@ -18,7 +20,7 @@ import (
 
 var (
 	applicationHost = "localhost"                      // Default value for local development
-	applicationPort = "5155"                           // Default value for local development
+	applicationPort = 5155                             // Default value for local development
 	serviceName     = "KONTEST-AUTHENTICATION-SERVICE" // Service name for Service Registry
 	consulHost      = "localhost"                      // Default value for local development
 	consulPort      = 5150
@@ -33,14 +35,26 @@ var (
 )
 
 func initializeVariables() {
+	// Get the hostname of the machine
+	hostname, err := os.Hostname()
+	if err != nil {
+		log.Fatalf("Error fetching hostname: %v", err)
+	}
+
 	// Attempt to read the KONTEST_API_SERVER_HOST environment variable
 	if host := os.Getenv("KONTEST_AUTHENTICATION_SERVICE_HOST"); host != "" {
 		applicationHost = host // Override with the environment variable if set
+	} else {
+		applicationHost = hostname // Use the machine's hostname if the env var is not set
 	}
 
 	// Attempt to read the KONTEST_API_SERVER_PORT environment variable
 	if port := os.Getenv("KONTEST_AUTHENTICATION_SERVICE_PORT"); port != "" {
-		applicationPort = port // Override with the environment variable if set
+		parsedPort, err := strconv.Atoi(port)
+		if err != nil {
+			log.Fatalf("Invalid port value: %v", err)
+		}
+		applicationPort = parsedPort // Override with the environment variable if set
 	}
 
 	// Attempt to read the CONSUL_ADDRESS environment variable
@@ -94,36 +108,81 @@ func main() {
 	kafkaBroker := kafkaConfig.KafkaHost + ":" + kafkaConfig.KafkaPort
 	service.InitKafka(kafkaBroker)
 
-	portInt, err := strconv.Atoi(applicationPort)
-	if err != nil {
-		log.Fatalf("Failed to convert applicationPort to integer: %v", err)
-	}
-
 	consulService := consulServiceManager.NewConsulService(consulHost, consulPort)
-	consulService.Start(applicationHost, portInt, serviceName)
+	consulService.Start(applicationHost, applicationPort, serviceName, []string{})
 
 	// Initialize the database connection
 	database.InitializeDatabase(dbName, dbPort, dbHost, dbUser, dbPassword, map[bool]string{true: "enable", false: "disable"}[isSSLModeEnabled])
 	database.SetupDatabase()
 	defer database.CloseDB()
-	//doDatabaseTest()
+
+	DoStartupTasks()
 
 	router := http.NewServeMux()
 
 	routes.RegisterRoutes(router)
 
 	server := http.Server{
-		Addr:    ":" + applicationPort, // Use the field name Addr for the address
-		Handler: router,                // Use the field name Handler for the router
+		Addr:    ":" + strconv.Itoa(applicationPort),
+		Handler: router,
 	}
 
-	fmt.Println("Server listening at applicationPort: " + applicationPort)
+	fmt.Println("Server listening at applicationPort: " + strconv.Itoa(applicationPort))
 
-	err = server.ListenAndServe()
+	err := server.ListenAndServe()
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
+}
+
+func DoStartupTasks() {
+	// Make users admin
+	MakeUsersAdmin()
+}
+
+func MakeUsersAdmin() {
+	tx, err := database.GetDB().Beginx()
+
+	if err != nil {
+		slog.Error(fmt.Sprintf("Failed to begin transaction: %v", err))
+		os.Exit(1)
+	}
+
+	defer func() {
+		if err != nil {
+			err := tx.Rollback()
+			if err != nil {
+				slog.Warn("Cannot rollback transaction")
+				return
+			} // Rollback if there was an error
+		} else {
+			if commitErr := tx.Commit(); commitErr != nil {
+				slog.Error(fmt.Sprintf("Failed to commit transaction: %v", commitErr))
+				os.Exit(1)
+			}
+		}
+	}()
+
+	emailsOfUsersToMakeAdmin := []string{"ayushsinghals02@gmail.com"}
+
+	for _, email := range emailsOfUsersToMakeAdmin {
+		user, err := database.FindUserByEmail(email)
+		if err != nil {
+			slog.Error(fmt.Sprintf("Error finding user with email %s: %v\n", email, err))
+			continue
+		}
+
+		// Assign the admin role to the user in DB
+		_, err = database.AssignRoleToUser(user.ID, model.GetRoleAdmin().ID, tx)
+		if err != nil {
+			slog.Error(fmt.Sprintf("Error assigning admin role to user with email %s: %v\n", email, err))
+		}
+
+		// Assign the admin role to the user in spiceDB
+		spicedb_utils.MakeUserAdmin(user.ID.String())
+	}
+
 }
 
 func doDatabaseTest() {

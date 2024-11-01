@@ -41,6 +41,7 @@ func loadConfig() *KafkaConfig {
 		loadKafkaTopic(AccountDeletionEventTopic),
 		loadKafkaTopic(AccountDeletionEmailEventTopic),
 		loadKafkaTopic(PasswordChangeEmailEventTopic),
+		loadKafkaTopic(LoginOTTEmailEventTopic),
 	}
 
 	return &KafkaConfig{
